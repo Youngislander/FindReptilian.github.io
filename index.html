@@ -306,14 +306,99 @@ function EndingScreen({ chars, accused, culpritId, endingKey, onRestart }){
 }
 
 function TitleScreen({onStart}){
+  const introLines = useMemo(() => [
+    "처음엔… 별거 아닌 줄 알았다.",
+    "사람들이 말을 할 때, 눈을 깜빡이지 않는 순간이 있었다.",
+    "탕비실에서는 녹즙 냄새가 너무 진하게 났고, 회의실에서는 누군가 입술을 핥는 소리가 났다.",
+    "다들 평범한 동료들이었다. 적어도… 겉모습은.",
+    "— 오늘, 나는 결심했다. 이 회사엔 분명 한 명 있다. 인간이 아닌 자가."
+  ], []);
+  const [introPhase, setIntroPhase] = useState("idle");
+  const [lineIndex, setLineIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [renderedLines, setRenderedLines] = useState(() => introLines.map(() => ""));
+  const [hasIntroStarted, setHasIntroStarted] = useState(false);
+
+  useEffect(() => {
+    if (introPhase !== "typing") return;
+
+    if (lineIndex >= introLines.length){
+      const timeout = setTimeout(() => setIntroPhase("fadeout"), 900);
+      return () => clearTimeout(timeout);
+    }
+
+    const target = introLines[lineIndex];
+    if (charIndex < target.length){
+      const timeout = setTimeout(() => {
+        setRenderedLines(prev => {
+          const next = prev.slice();
+          const current = next[lineIndex] || "";
+          next[lineIndex] = current + target[charIndex];
+          return next;
+        });
+        setCharIndex(charIndex + 1);
+      }, 45);
+      return () => clearTimeout(timeout);
+    }
+
+    const timeout = setTimeout(() => {
+      setLineIndex(lineIndex + 1);
+      setCharIndex(0);
+    }, 650);
+    return () => clearTimeout(timeout);
+  }, [introPhase, lineIndex, charIndex, introLines]);
+
+  useEffect(() => {
+    if (introPhase !== "fadeout") return;
+    const timeout = setTimeout(() => setIntroPhase("done"), 900);
+    return () => clearTimeout(timeout);
+  }, [introPhase]);
+
+  const handlePrimaryClick = () => {
+    if (!hasIntroStarted){
+      setHasIntroStarted(true);
+      setRenderedLines(introLines.map(() => ""));
+      setLineIndex(0);
+      setCharIndex(0);
+      setIntroPhase("typing");
+      return;
+    }
+
+    if (introPhase === "idle" || introPhase === "done"){
+      onStart();
+    }
+  };
+
+  const overlayVisible = introPhase === "typing" || introPhase === "fadeout";
+  const baseBlur = introPhase === "typing" ? "blur(18px)" : introPhase === "fadeout" ? "blur(6px)" : "none";
+  const buttonLabel = hasIntroStarted ? "게임 시작" : "START";
+  const buttonDisabled = introPhase === "typing" || introPhase === "fadeout";
+
   return (
-    <div style={styles.titleRoot}>
+    <div style={{...styles.titleRoot, filter: baseBlur, transition:"filter 0.9s ease"}}>
       <HeroIllust />
       <div style={styles.titleBox}>
         <div style={{fontWeight:900,fontSize:28,letterSpacing:1}}>랩틸리언을 찾아라</div>
         <div style={{opacity:0.9,marginTop:6}}>반은 인간, 반은 랩틸리언… 오늘도 평범한 회사?</div>
-        <button style={styles.btnPrimary} onClick={onStart}>게임 시작</button>
+        <button style={{...styles.btnPrimary, opacity: buttonDisabled?0.7:1, cursor: buttonDisabled?"default":"pointer"}} onClick={handlePrimaryClick} disabled={buttonDisabled}>{buttonLabel}</button>
       </div>
+      {overlayVisible && (
+        <div style={{
+          ...styles.introOverlay,
+          opacity: introPhase === "fadeout" ? 0 : 1,
+          filter: introPhase === "fadeout" ? "blur(10px)" : "none",
+          backgroundColor: introPhase === "fadeout" ? "rgba(4,6,14,0)" : "rgba(4,6,14,0.96)",
+          pointerEvents: introPhase === "fadeout" ? "none" : "auto"
+        }}>
+          <div style={styles.introBox}>
+            {introLines.map((line, idx) => {
+              const text = renderedLines[idx] || (idx < lineIndex ? line : "");
+              if (!text) return null;
+              return <div key={idx} style={styles.introLine}>{text}</div>;
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -469,10 +554,13 @@ const styles = {
   dialogBox:{ background:"rgba(2,6,23,0.8)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:14, padding:"12px 14px" },
   choiceBar:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 },
   btnChoice:{ padding:"12px", background:"#131c2b", color:"#e5e7eb", border:"1px solid rgba(255,255,255,0.2)", borderRadius:12,textAlign:"left", fontWeight:800, cursor:"pointer" },
-  titleRoot:{ minHeight:"100vh", display:"grid", placeItems:"center", padding:16, boxSizing:"border-box", background:"radial-gradient(900px 400px at 50% 0%, #0a0e1a, #070a13)", color:"#e5e7eb" },
+  titleRoot:{ minHeight:"100vh", display:"grid", placeItems:"center", padding:16, boxSizing:"border-box", background:"radial-gradient(900px 400px at 50% 0%, #0a0e1a, #070a13)", color:"#e5e7eb", position:"relative", overflow:"hidden" },
   titleBox:{ textAlign:"center", marginTop:16 },
   btnPrimary:{ padding:"10px 14px", background:"#10b981", color:"#0b1020", border:"none", borderRadius:10, fontWeight:800, cursor:"pointer", marginTop:12 },
   btnGhost:{ padding:"10px 14px", background:"transparent", color:"#e5e7eb", border:"1px solid rgba(255,255,255,0.25)", borderRadius:10, fontWeight:800, cursor:"pointer" },
+  introOverlay:{ position:"fixed", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 24px", zIndex:20, color:"#f8fafc", textAlign:"left", transition:"opacity 0.9s ease, filter 0.9s ease, background-color 0.9s ease" },
+  introBox:{ width:"min(760px,92vw)", display:"grid", gap:18, fontSize:20, lineHeight:1.9, fontWeight:600, fontFamily:"'Nanum Gothic Coding','Fira Mono',monospace" },
+  introLine:{ textShadow:"0 0 12px rgba(15,118,110,0.65)", letterSpacing:0.2 },
   summaryRoot:{ minHeight:"100vh", display:"grid", placeItems:"center", background:"linear-gradient(180deg,#070b14,#0a0f1c)", color:"#e5e7eb", padding:16 },
   summaryBox:{ width:"min(920px,92vw)", background:"rgba(2,6,23,0.8)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:16, padding:16 },
   card:{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:12, padding:12 },
