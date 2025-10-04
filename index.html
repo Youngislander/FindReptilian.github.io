@@ -324,7 +324,7 @@ function TitleScreen({onStart}){
   const [finalRendered, setFinalRendered] = useState("");
   const [finalCharIndex, setFinalCharIndex] = useState(0);
   const [finalTypingDone, setFinalTypingDone] = useState(false);
-  const finalButtonDelayMs = 2000;
+  const finalButtonDelayMs = 1000;
 
   const playTypingSound = useCallback(() => {
     const base = typingAudioRef.current;
