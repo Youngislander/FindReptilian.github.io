@@ -25,7 +25,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel" data-presets="env,react">
-const { useMemo, useState, useEffect } = React;
+const { useMemo, useState, useEffect, useRef } = React;
 
 function App(){
   const baseChars = [
@@ -318,6 +318,7 @@ function TitleScreen({onStart}){
   const [charIndex, setCharIndex] = useState(0);
   const [renderedLines, setRenderedLines] = useState(() => introLines.map(() => ""));
   const [hasIntroStarted, setHasIntroStarted] = useState(false);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (introPhase !== "typing") return;
@@ -348,6 +349,24 @@ function TitleScreen({onStart}){
     return () => clearTimeout(timeout);
   }, [introPhase, lineIndex, charIndex, introLines]);
 
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+    if (hasIntroStarted){
+      audioEl.currentTime = 0;
+      audioEl.volume = 0.35;
+      const playPromise = audioEl.play();
+      if (playPromise && typeof playPromise.catch === "function"){ playPromise.catch(()=>{}); }
+    } else {
+      audioEl.pause();
+      audioEl.currentTime = 0;
+    }
+    return () => {
+      audioEl.pause();
+      audioEl.currentTime = 0;
+    };
+  }, [hasIntroStarted]);
+
   const handlePrimaryClick = () => {
     if (!hasIntroStarted){
       setHasIntroStarted(true);
@@ -364,12 +383,12 @@ function TitleScreen({onStart}){
   };
 
   const overlayVisible = introPhase === "typing" || introPhase === "final";
-  const baseBlur = overlayVisible ? "blur(6px)" : "none";
   const buttonLabel = hasIntroStarted ? "게임 시작" : "START";
   const buttonDisabled = introPhase === "typing" || introPhase === "final";
 
   return (
-    <div style={{...styles.titleRoot, filter: baseBlur, transition:"filter 0.9s ease"}}>
+    <div style={styles.titleRoot}>
+      <audio ref={audioRef} src="https://cdn.pixabay.com/download/audio/2022/02/23/audio_a521073e1b.mp3?filename=dark-mystery-ambient-110058.mp3" loop preload="auto" style={{display:"none"}} />
       <HeroIllust />
       <div style={styles.titleBox}>
         <div style={{fontWeight:900,fontSize:28,letterSpacing:1}}>랩틸리언을 찾아라</div>
@@ -546,7 +565,7 @@ function computeLeaders(st){
 
 const styles = {
   sceneHeader:{ position:"fixed", top:12, left:12, right:12, textAlign:"left", padding:"10px 12px", borderRadius:12, background:"rgba(0,0,0,0.45)", border:"1px solid rgba(255,255,255,0.12)", color:"#e5e7eb", fontWeight:900, letterSpacing:0.2, zIndex:0 },
-  vnRoot:{ minHeight:"100vh", background:"rgba(0,0,0,0.35)", backdropFilter:"blur(1px)", color:"#e5e7eb", fontFamily:"ui-sans-serif,system-ui", display:"grid", gridTemplateRows:"1fr auto auto", gap:12, padding:16, boxSizing:"border-box" },
+  vnRoot:{ minHeight:"100vh", background:"rgba(0,0,0,0.35)", color:"#e5e7eb", fontFamily:"ui-sans-serif,system-ui", display:"grid", gridTemplateRows:"1fr auto auto", gap:12, padding:16, boxSizing:"border-box" },
   hud:{ position:"fixed", top:12, right:12, display:"flex", gap:8, alignItems:"center", background:"rgba(0,0,0,0.55)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:10, padding:"6px 10px", zIndex:1 },
   btnMini:{ padding:"6px 8px", background:"#0ea5e9", color:"#0b1020", border:"none", borderRadius:8, fontWeight:800, cursor:"pointer" },
   pairWrap:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, alignItems:"center", justifyItems:"center" },
@@ -559,9 +578,9 @@ const styles = {
   btnGhost:{ padding:"10px 14px", background:"transparent", color:"#e5e7eb", border:"1px solid rgba(255,255,255,0.25)", borderRadius:10, fontWeight:800, cursor:"pointer" },
   introOverlay:{ position:"fixed", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 24px", zIndex:20, color:"#f8fafc", textAlign:"left", transition:"opacity 0.9s ease, filter 0.9s ease, background-color 0.9s ease" },
   introBox:{ width:"min(760px,92vw)", display:"grid", gap:18, fontSize:20, lineHeight:1.9, fontWeight:600, fontFamily:"'Nanum Gothic Coding','Fira Mono',monospace" },
-  introLine:{ textShadow:"0 0 12px rgba(15,118,110,0.65)", letterSpacing:0.2 },
+  introLine:{ letterSpacing:0.2 },
   introFinalBox:{ width:"min(640px,88vw)", display:"grid", gap:28, textAlign:"center" },
-  introFinalLine:{ fontSize:28, fontStyle:"italic", fontWeight:800, lineHeight:1.7, letterSpacing:0.4, textShadow:"0 0 16px rgba(16,185,129,0.6)" },
+  introFinalLine:{ fontSize:28, fontStyle:"italic", fontWeight:800, lineHeight:1.7, letterSpacing:0.4 },
   summaryRoot:{ minHeight:"100vh", display:"grid", placeItems:"center", background:"linear-gradient(180deg,#070b14,#0a0f1c)", color:"#e5e7eb", padding:16 },
   summaryBox:{ width:"min(920px,92vw)", background:"rgba(2,6,23,0.8)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:16, padding:16 },
   card:{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:12, padding:12 },
