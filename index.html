@@ -25,7 +25,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel" data-presets="env,react">
-const { useMemo, useState, useEffect, useRef } = React;
+const { useMemo, useState, useEffect, useRef, useCallback } = React;
 
 function App(){
   const baseChars = [
@@ -319,6 +319,44 @@ function TitleScreen({onStart}){
   const [renderedLines, setRenderedLines] = useState(() => introLines.map(() => ""));
   const [hasIntroStarted, setHasIntroStarted] = useState(false);
   const audioRef = useRef(null);
+  const typingAudioRef = useRef(null);
+  const activeTypingAudiosRef = useRef([]);
+  const [finalRendered, setFinalRendered] = useState("");
+  const [finalCharIndex, setFinalCharIndex] = useState(0);
+  const [finalTypingDone, setFinalTypingDone] = useState(false);
+
+  const playTypingSound = useCallback(() => {
+    const base = typingAudioRef.current;
+    if (!base) return;
+    const clone = base.cloneNode();
+    clone.volume = 0.45;
+    const sounds = activeTypingAudiosRef.current;
+    const removeClone = () => {
+      clone.removeEventListener("ended", removeClone);
+      clone.removeEventListener("error", removeClone);
+      const idx = sounds.indexOf(clone);
+      if (idx >= 0){ sounds.splice(idx, 1); }
+    };
+    clone.addEventListener("ended", removeClone);
+    clone.addEventListener("error", removeClone);
+    sounds.push(clone);
+    const playPromise = clone.play();
+    if (playPromise && typeof playPromise.catch === "function"){
+      playPromise.catch(() => {
+        removeClone();
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const sounds = activeTypingAudiosRef.current;
+      sounds.forEach(audio => {
+        try { audio.pause(); } catch (err) {}
+      });
+      sounds.length = 0;
+    };
+  }, []);
 
   useEffect(() => {
     if (introPhase !== "typing") return;
@@ -337,7 +375,8 @@ function TitleScreen({onStart}){
           next[lineIndex] = current + target[charIndex];
           return next;
         });
-        setCharIndex(charIndex + 1);
+        playTypingSound();
+        setCharIndex(prev => prev + 1);
       }, 45);
       return () => clearTimeout(timeout);
     }
@@ -347,7 +386,7 @@ function TitleScreen({onStart}){
       setCharIndex(0);
     }, 650);
     return () => clearTimeout(timeout);
-  }, [introPhase, lineIndex, charIndex, introLines]);
+  }, [introPhase, lineIndex, charIndex, introLines, playTypingSound]);
 
   useEffect(() => {
     const audioEl = audioRef.current;
@@ -366,6 +405,28 @@ function TitleScreen({onStart}){
       audioEl.currentTime = 0;
     };
   }, [hasIntroStarted]);
+
+  useEffect(() => {
+    if (introPhase !== "final") return;
+    setFinalRendered("");
+    setFinalCharIndex(0);
+    setFinalTypingDone(false);
+  }, [introPhase, finalLine]);
+
+  useEffect(() => {
+    if (introPhase !== "final") return;
+    if (finalTypingDone) return;
+    if (finalCharIndex < finalLine.length){
+      const timeout = setTimeout(() => {
+        setFinalRendered(prev => prev + finalLine[finalCharIndex]);
+        playTypingSound();
+        setFinalCharIndex(prev => prev + 1);
+      }, 55);
+      return () => clearTimeout(timeout);
+    }
+    const timeout = setTimeout(() => setFinalTypingDone(true), 320);
+    return () => clearTimeout(timeout);
+  }, [introPhase, finalCharIndex, finalLine, finalTypingDone, playTypingSound]);
 
   const handlePrimaryClick = () => {
     if (!hasIntroStarted){
@@ -389,6 +450,7 @@ function TitleScreen({onStart}){
   return (
     <div style={styles.titleRoot}>
       <audio ref={audioRef} src="./BGM_01.mp3" loop preload="auto" style={{display:"none"}} />
+      <audio ref={typingAudioRef} src="./writing_01.mp3" preload="auto" style={{display:"none"}} />
       <HeroIllust />
       <div style={styles.titleBox}>
         <div style={{fontWeight:900,fontSize:28,letterSpacing:1}}>랩틸리언을 찾아라</div>
@@ -411,8 +473,17 @@ function TitleScreen({onStart}){
             </div>
           ) : (
             <div style={styles.introFinalBox}>
-              <div style={styles.introFinalLine}>{finalLine}</div>
-              <button style={styles.btnPrimary} onClick={onStart}>출근하기</button>
+              <div style={styles.introFinalLine}>{finalRendered}</div>
+              <button
+                style={{
+                  ...styles.btnPrimary,
+                  opacity: finalTypingDone ? 1 : 0,
+                  pointerEvents: finalTypingDone ? "auto" : "none",
+                  transform: finalTypingDone ? "translateY(0)" : "translateY(12px)",
+                  transition: "opacity 0.6s ease, transform 0.6s ease"
+                }}
+                onClick={onStart}
+              >출근하기</button>
             </div>
           )}
         </div>
