@@ -56,12 +56,9 @@ export default function App(){
     const pool = eligibleIds(st);
     if (pool.length===0) return [];
     if (pool.length===1){
-      // 한 명만 남았으면, 이미 대화 끝난 사람 중(또는 finalists 범위 내)에서 1명 보조로 채움 (미끼 대화)
-      const universe = (st.finalists? st.finalists : baseChars.map(c=>c.id)).filter(id=>id!==pool[0]);
-      const others = universe;
-      if (others.length===0) return [pool[0]]; // 이 경우 곧 요약으로 감
-      const copy = others.slice(); shuffle(copy);
-      return [pool[0], copy[0]];
+      // 이미 대화한 인물은 선택지에서 제외해야 하므로 마지막 남은 인물만 반환한다.
+      // (과거에는 다른 동료를 미끼로 노출했으나, 클릭 시 다시 대화가 진행되는 버그가 있었다.)
+      return [pool[0]];
     }
     const copy = pool.slice(); shuffle(copy);
     return [copy[0], copy[1]];
