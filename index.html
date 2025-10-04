@@ -312,7 +312,7 @@ function TitleScreen({onStart}){
     "탕비실에서는 녹즙 냄새가 너무 진하게 났고, 회의실에서는 누군가 입술을 핥는 소리가 났다.",
     "다들 평범한 동료들이었다. 적어도… 겉모습은."
   ], []);
-  const finalLine = useMemo(() => "— 이 회사엔 분명 한 명 있다. 인간이 아닌 자가..", []);
+  const finalLine = useMemo(() => "— 이 회사엔 분명 한 명 있다.\n\n인간이 아닌 자가..", []);
   const [introPhase, setIntroPhase] = useState("idle");
   const [lineIndex, setLineIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
@@ -493,7 +493,27 @@ function TitleScreen({onStart}){
             </div>
           ) : (
             <div style={styles.introFinalBox}>
-              <div style={styles.introFinalLine}>{finalRendered}</div>
+              <div style={styles.introFinalLineGroup}>
+                {finalRendered.split("\n").map((line, idx, arr) => {
+                  if (!line.trim()){
+                    return <div key={idx} style={{height: idx === arr.length - 1 ? 0 : 16}} />;
+                  }
+                  const trimmed = line.trim();
+                  const targetFinalLine = "인간이 아닌 자가..";
+                  const highlight = targetFinalLine.startsWith(trimmed) || trimmed.startsWith(targetFinalLine);
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        ...styles.introFinalLine,
+                        ...(highlight ? styles.introFinalLineEmphasis : null)
+                      }}
+                    >
+                      {line}
+                    </div>
+                  );
+                })}
+              </div>
               <button
                 style={{
                   ...styles.btnPrimary,
@@ -671,7 +691,9 @@ const styles = {
   introBox:{ width:"min(760px,92vw)", display:"grid", gap:18, fontSize:20, lineHeight:1.9, fontWeight:600, fontFamily:"'Nanum Gothic Coding','Fira Mono',monospace" },
   introLine:{ letterSpacing:0.2 },
   introFinalBox:{ width:"min(640px,88vw)", display:"grid", gap:28, textAlign:"center" },
+  introFinalLineGroup:{ display:"grid", justifyItems:"center", gap:4 },
   introFinalLine:{ fontSize:28, fontStyle:"italic", fontWeight:800, lineHeight:1.7, letterSpacing:0.4 },
+  introFinalLineEmphasis:{ color:"#ef4444", fontSize:34, fontStyle:"normal", fontWeight:900, letterSpacing:0.6 },
   summaryRoot:{ minHeight:"100vh", display:"grid", placeItems:"center", background:"linear-gradient(180deg,#070b14,#0a0f1c)", color:"#e5e7eb", padding:16 },
   summaryBox:{ width:"min(920px,92vw)", background:"rgba(2,6,23,0.8)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:16, padding:16 },
   card:{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:12, padding:12 },
