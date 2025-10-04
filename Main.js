@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+const { useMemo, useState, useEffect } = React;
 
 // "랩틸리언을 찾아라" — 미연시 스타일 선택 추리 게임 (단일 파일)
 // 신규 요구 반영 + 버그 수정:
@@ -11,7 +11,7 @@ import React, { useMemo, useState, useEffect } from "react";
 // - 어려운 기술 용어 제거, 쉬운 말투
 // - 🔧 무한 리렌더 수정: 렌더 중 setState 호출 제거. useEffect로 페어 생성 관리
 
-export default function App(){
+function App(){
   const baseChars = [
     { id:"pm", name:"박PM", role:"프로덕트 매니저", color:"#4f83ff", desc:"프로덕트 방향과 회의를 정리한다." },
     { id:"ds", name:"최데싸", role:"데이터 사이언티스트", color:"#18b87a", desc:"데이터 분석과 리포트를 맡는다." },
@@ -320,14 +320,15 @@ function TitleScreen({onStart}){
 }
 
 function SceneLayer({tag}){
-  // JPG 배경을 상황별로 적용 (괴수8호풍 애니 톤). /public/images/ 경로 기준
+  // JPG 배경을 상황별로 적용 (괴수8호풍 애니 톤). 파일 프로토콜에서도 동작하도록 상대 경로 처리
+  const prefix = (typeof window !== "undefined" && window.location && window.location.protocol === "file:") ? "." : "";
   const bgMap = {
-    meeting: "/images/meeting_kaiju.jpg",
-    datalab: "/images/datalab_kaiju.jpg",
-    cafeteria: "/images/cafeteria_kaiju.jpg",
-    pantry: "/images/pantry_kaiju.jpg",
-    office: "/images/office_kaiju.jpg",
-    default: "/images/default_bg.jpg"
+    meeting: `${prefix}/images/meeting_kaiju.jpg`,
+    datalab: `${prefix}/images/datalab_kaiju.jpg`,
+    cafeteria: `${prefix}/images/cafeteria_kaiju.jpg`,
+    pantry: `${prefix}/images/pantry_kaiju.jpg`,
+    office: `${prefix}/images/office_kaiju.jpg`,
+    default: `${prefix}/images/default_bg.jpg`
   };
   const url = bgMap[tag] || bgMap.default;
   return (
@@ -495,3 +496,10 @@ const styles = {
   title:{ margin:0, fontSize:20, fontWeight:900, marginBottom:10 },
   endDesc:{ opacity:0.95, lineHeight:1.6, marginBottom:8 }
 };
+
+document.addEventListener("DOMContentLoaded", () => {
+  const rootEl = document.getElementById("root");
+  if (!rootEl) return;
+  const root = ReactDOM.createRoot(rootEl);
+  root.render(<App />);
+});
