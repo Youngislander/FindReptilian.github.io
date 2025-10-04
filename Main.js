@@ -497,9 +497,18 @@ const styles = {
   endDesc:{ opacity:0.95, lineHeight:1.6, marginBottom:8 }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+let hasRendered = false;
+function renderApp(){
+  if (hasRendered) return;
   const rootEl = document.getElementById("root");
   if (!rootEl) return;
+  hasRendered = true;
   const root = ReactDOM.createRoot(rootEl);
   root.render(<App />);
-});
+}
+
+if (document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", renderApp, { once:true });
+} else {
+  renderApp();
+}
