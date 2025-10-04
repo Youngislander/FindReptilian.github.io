@@ -370,7 +370,7 @@ function TitleScreen({onStart}){
   };
 
   const overlayVisible = introPhase === "typing" || introPhase === "fadeout";
-  const baseBlur = introPhase === "typing" ? "blur(18px)" : introPhase === "fadeout" ? "blur(6px)" : "none";
+  const baseBlur = introPhase === "fadeout" ? "blur(6px)" : "none";
   const buttonLabel = hasIntroStarted ? "게임 시작" : "START";
   const buttonDisabled = introPhase === "typing" || introPhase === "fadeout";
 
