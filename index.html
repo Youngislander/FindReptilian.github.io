@@ -30,39 +30,173 @@
         background: rgba(15, 23, 42, 0.92);
         border: 1px solid rgba(148, 163, 184, 0.22);
         border-radius: 22px;
-        padding: 24px;
+        padding: 32px 28px;
         box-shadow: 0 28px 80px rgba(15, 23, 42, 0.55);
       }
 
-      .game-shell h1 {
-        margin: 0 0 18px;
-        font-size: clamp(1.5rem, 2vw + 1rem, 2.4rem);
-        font-weight: 600;
+      .intro-wrap {
         text-align: center;
+      }
+
+      .intro-wrap h1 {
+        margin: 0 0 18px;
+        font-size: clamp(1.6rem, 2.2vw + 1rem, 2.6rem);
+        font-weight: 600;
         color: #f8fafc;
         letter-spacing: -0.02em;
       }
 
       .intro-copy {
-        text-align: center;
         font-size: clamp(1rem, 1vw + 0.8rem, 1.15rem);
-        margin-bottom: 20px;
-        color: rgba(226, 232, 240, 0.82);
-        line-height: 1.6;
+        margin: 0 auto 24px;
+        max-width: 640px;
+        color: rgba(226, 232, 240, 0.85);
+        line-height: 1.7;
+      }
+
+      .intro-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px 20px;
+        margin-bottom: 32px;
+        font-size: 0.95rem;
+        color: rgba(148, 163, 184, 0.9);
+      }
+
+      .intro-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.55);
+      }
+
+      .primary-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 28px;
+        border-radius: 999px;
+        border: none;
+        font-size: 1.05rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #38bdf8, #6366f1);
+        color: #0b1120;
+        cursor: pointer;
+        box-shadow: 0 12px 30px rgba(56, 189, 248, 0.35);
+        transition: transform 120ms ease, box-shadow 120ms ease;
+      }
+
+      .primary-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 36px rgba(56, 189, 248, 0.45);
+      }
+
+      .primary-button:active {
+        transform: translateY(0);
+        box-shadow: 0 8px 20px rgba(56, 189, 248, 0.32);
+      }
+
+      .primary-button svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .game-section {
+        margin-top: 32px;
+      }
+
+      .game-section.is-hidden {
+        display: none;
+      }
+
+      @media (max-width: 640px) {
+        .game-shell {
+          padding: 24px 20px;
+        }
+
+        .intro-meta {
+          flex-direction: column;
+          gap: 10px;
+        }
       }
     </style>
   </head>
   <body>
     <div class="page-wrap">
       <div class="game-shell">
-        <h1>녹즙으로 잠입한 랩틸리언을 추적하라</h1>
-        <p class="intro-copy">
-          더 이상 "출근하기" 버튼은 없습니다. 탕비실에 들어선 순간부터 조사가 시작됩니다.
-          바로 아래에서 퍼즐을 해결하며 단서를 모아 보세요.
-        </p>
-        <div id="game-root"></div>
+        <div class="intro-wrap" id="intro-section">
+          <h1>녹즙 출근부 — 잠입자 의심 신고서</h1>
+          <p class="intro-copy">
+            새벽마다 탕비실로 들어가 비밀리에 녹즙을 제조하는 동료가 있습니다. 오늘도 "정상 출근"
+            이라는 명목으로 사무실 문을 열면, 곧장 의심스러운 동작을 추적해야 합니다. 버튼을 누르는
+            순간부터는 후퇴할 수 없습니다.
+          </p>
+          <div class="intro-meta">
+            <span>07:45 — 탕비실 문이 열리기 전</span>
+            <span>증거 수집 단계 4회</span>
+            <span>정신력 관리 필수</span>
+          </div>
+          <button type="button" class="primary-button" id="start-commute">
+            출근하기
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M13 6l6 6-6 6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="game-section is-hidden" id="game-section">
+          <div id="game-root"></div>
+        </div>
       </div>
     </div>
     <script src="./green-juice-game.js"></script>
+    <script>
+      (function () {
+        function init() {
+          const startButton = document.getElementById("start-commute");
+          const introSection = document.getElementById("intro-section");
+          const gameSection = document.getElementById("game-section");
+          const root = document.getElementById("game-root");
+          if (!startButton || !introSection || !gameSection || !root || !window.GreenJuiceGame) {
+            return;
+          }
+
+          let started = false;
+
+          startButton.addEventListener("click", () => {
+            if (started) return;
+            started = true;
+            introSection.classList.add("is-hidden");
+            gameSection.classList.remove("is-hidden");
+
+            window.GreenJuiceGame.mount({
+              container: root,
+              flags: { skipIntro: true },
+              onEnd(result) {
+                console.log("Game Ended", result);
+              },
+            });
+            window.GreenJuiceGame.start();
+          });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", init);
+        } else {
+          init();
+        }
+      })();
+    </script>
   </body>
 </html>
