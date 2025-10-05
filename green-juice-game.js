@@ -20,19 +20,18 @@
     </div>
 
     <div id="puzzleLabel" class="hidden">
-      <div class="row"><b>라벨 해독</b><span class="note">3초 동안 라벨을 기억한 뒤 정답을 입력하세요.</span></div>
+      <div class="row"><b>라벨 해독</b><span class="note">3초 동안 카드 위치를 기억한 뒤 아이콘과 문자를 짝지으세요.</span></div>
       <div id="labelFlash" class="label-flash">
         <div id="labelCountdown" class="label-countdown">3</div>
         <div id="labelContent" class="label-content"></div>
       </div>
       <div id="labelPrompt" class="label-prompt hidden">
-        <div class="note">기억한 알파벳 네 글자를 순서대로 입력하세요.</div>
-        <div class="label-input-row">
-          <input id="labelInput" maxlength="4" autocomplete="off" spellcheck="false" />
-          <button id="labelSubmit">확인</button>
+        <div class="note">카드를 기억한 뒤, 아이콘과 알파벳을 짝지어 모두 맞춰보세요. 공개 시간은 3초뿐입니다.</div>
+        <div id="labelBoard" class="label-board"></div>
+        <div class="label-controls">
           <button id="labelReplay" class="ghost-button">다시 보기</button>
         </div>
-        <div class="note">힌트: 🌿=C, 💧=H, 🧪=L, 🧊=O</div>
+        <div class="note">힌트: 🌿↔C, 💧↔H, 🧪↔L, 🧊↔O</div>
       </div>
     </div>
 
@@ -74,9 +73,14 @@ button:hover { filter:brightness(1.1) }
 .label-content .icons { font-size:28px; letter-spacing:10px }
 .label-content .letters { font-size:20px; letter-spacing:6px }
 .label-prompt { margin-top:16px; display:grid; gap:12px }
-.label-input-row { display:flex; flex-wrap:wrap; gap:8px }
-#labelInput { flex:1; min-width:140px; padding:10px 12px; border-radius:10px; border:1px solid #2a2a58; background:#0e0e26; color:#f8fafc; font:700 18px/1 ui-monospace, Menlo, monospace; text-transform:uppercase; letter-spacing:3px }
-#labelInput:focus { outline:2px solid rgba(99,102,241,0.7); outline-offset:2px }
+.label-board { display:grid; grid-template-columns:repeat(4, minmax(64px, 1fr)); gap:10px }
+.label-controls { display:flex; justify-content:flex-end }
+.label-card { position:relative; padding:16px 10px; border:1px solid #2a2a58; border-radius:12px; background:rgba(15,15,40,0.95); color:#e2e8f0; font:700 22px/1.1 ui-monospace, Menlo, monospace; letter-spacing:4px; transition:background .2s ease, transform .2s ease; cursor:pointer }
+.label-card.is-letter { letter-spacing:3px; font-size:18px }
+.label-card.is-icon { font-size:28px; letter-spacing:8px }
+.label-card.revealed { background:rgba(88,91,229,0.22); border-color:rgba(129,140,248,0.45); color:#c7d2fe }
+.label-card.matched { background:rgba(34,197,94,0.2); border-color:rgba(134,239,172,0.55); color:#bbf7d0; cursor:default }
+.label-card:disabled { cursor:default; opacity:.88 }
 .ghost-button { border-color:rgba(99,102,241,0.55); background:rgba(17,17,40,0.85); color:#dbeafe }
 .ghost-button:hover { filter:brightness(1.08) }
 .keypad { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:8px }
@@ -113,12 +117,16 @@ button:hover { filter:brightness(1.1) }
   function renderLabelContent(container) {
     if (!container) return;
     container.innerHTML = "";
+    const promptLine = document.createElement("div");
+    promptLine.className = "label-line";
+    promptLine.textContent = "카드를 기억하세요!";
     const iconsLine = document.createElement("div");
     iconsLine.className = "label-line icons";
     iconsLine.textContent = PAIRS.map(([icon]) => icon).join("   ");
     const lettersLine = document.createElement("div");
     lettersLine.className = "label-line letters";
     lettersLine.textContent = LABEL_SEQUENCE.join("   ");
+    container.appendChild(promptLine);
     container.appendChild(iconsLine);
     container.appendChild(lettersLine);
   }
@@ -164,6 +172,7 @@ button:hover { filter:brightness(1.1) }
       root: null,
       toast: null,
       toastTimer: null,
+      labelGame: null,
       labelTimers: { interval: null, timeout: null },
       refs: {},
     };
@@ -214,6 +223,7 @@ button:hover { filter:brightness(1.1) }
     clearLabelTimers();
     const { refs } = STATE;
     if (!refs) return;
+    STATE.labelGame = null;
     if (refs.puzzleLabel) refs.puzzleLabel.classList.add("hidden");
     if (refs.puzzleKey) refs.puzzleKey.classList.add("hidden");
     if (refs.labelFlash) refs.labelFlash.classList.add("hidden");
@@ -269,38 +279,130 @@ button:hover { filter:brightness(1.1) }
       labelCountdown,
       labelContent,
       labelPrompt,
-      labelInput,
-      labelSubmit,
+      labelBoard,
       labelReplay,
     } = STATE.refs;
 
-    if (!puzzleLabel) return;
+    if (!puzzleLabel || !labelBoard) return;
 
     const timers = STATE.labelTimers;
     const revealDuration = 3000;
 
+    function createCards() {
+      const cards = [];
+      PAIRS.forEach(([icon, letter]) => {
+        cards.push({ id: letter, display: icon, type: "icon" });
+        cards.push({ id: letter, display: letter, type: "letter" });
+      });
+      for (let i = cards.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      return cards;
+    }
+
+    function initGame() {
+      const cards = createCards();
+      const buttons = [];
+      STATE.labelGame = {
+        cards,
+        buttons,
+        revealed: [],
+        matched: new Set(),
+        locked: false,
+        peek: true,
+      };
+
+      labelBoard.innerHTML = "";
+      cards.forEach((card, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `label-card ${card.type === "icon" ? "is-icon" : "is-letter"}`;
+        btn.onclick = () => handleFlip(index);
+        labelBoard.appendChild(btn);
+        buttons.push(btn);
+      });
+
+      updateBoard();
+    }
+
+    function updateBoard() {
+      const game = STATE.labelGame;
+      if (!game) return;
+      const { cards, buttons, revealed, matched, peek, locked } = game;
+      cards.forEach((card, index) => {
+        const btn = buttons[index];
+        if (!btn) return;
+        const isMatched = matched.has(card.id);
+        const isRevealed = peek || revealed.includes(index) || isMatched;
+        btn.textContent = isRevealed ? card.display : "❓";
+        btn.classList.toggle("revealed", isRevealed);
+        btn.classList.toggle("matched", isMatched);
+        btn.disabled = peek || locked || isRevealed;
+      });
+    }
+
+    function handleFlip(index) {
+      const game = STATE.labelGame;
+      if (!game || game.peek || game.locked) return;
+      if (game.revealed.includes(index)) return;
+      const card = game.cards[index];
+      if (game.matched.has(card.id)) return;
+
+      game.revealed.push(index);
+      updateBoard();
+
+      if (game.revealed.length === 2) {
+        game.locked = true;
+        const [firstIdx, secondIdx] = game.revealed;
+        const first = game.cards[firstIdx];
+        const second = game.cards[secondIdx];
+        if (first.id === second.id && first.type !== second.type) {
+          setTimeout(() => {
+            const active = STATE.labelGame;
+            if (!active) return;
+            active.matched.add(first.id);
+            active.revealed = [];
+            active.locked = false;
+            updateBoard();
+            if (active.matched.size === PAIRS.length) {
+              showToast("해독 성공! 증거 획득");
+              go("label_done");
+            }
+          }, 420);
+        } else {
+          setTimeout(() => {
+            const active = STATE.labelGame;
+            if (!active) return;
+            active.revealed = [];
+            active.locked = false;
+            updateBoard();
+          }, 720);
+        }
+      }
+    }
+
     function startReveal() {
       clearLabelTimers();
+      initGame();
+
+      puzzleLabel.classList.remove("hidden");
+      if (labelPrompt) {
+        labelPrompt.classList.remove("hidden");
+      }
       if (labelFlash) {
         labelFlash.classList.remove("hidden");
-      }
-      if (labelPrompt) {
-        labelPrompt.classList.add("hidden");
-      }
-      if (labelInput) {
-        labelInput.disabled = true;
-      }
-      if (labelSubmit) {
-        labelSubmit.disabled = true;
-      }
-      if (labelReplay) {
-        labelReplay.disabled = true;
       }
       if (labelCountdown) {
         labelCountdown.classList.remove("hidden");
         labelCountdown.textContent = "3";
       }
-      renderLabelContent(labelContent);
+      if (labelContent) {
+        renderLabelContent(labelContent);
+      }
+      if (labelReplay) {
+        labelReplay.disabled = true;
+      }
 
       let remaining = 3;
       timers.interval = setInterval(() => {
@@ -327,62 +429,25 @@ button:hover { filter:brightness(1.1) }
       if (labelFlash) {
         labelFlash.classList.add("hidden");
       }
-      if (labelPrompt) {
-        labelPrompt.classList.remove("hidden");
-      }
       if (labelCountdown) {
         labelCountdown.classList.add("hidden");
       }
       if (labelContent) {
         labelContent.innerHTML = "";
       }
-      if (labelInput) {
-        labelInput.disabled = false;
-        labelInput.focus();
-        labelInput.select();
-      }
-      if (labelSubmit) {
-        labelSubmit.disabled = false;
+      const game = STATE.labelGame;
+      if (game) {
+        game.peek = false;
+        game.revealed = [];
+        game.locked = false;
+        updateBoard();
       }
       if (labelReplay) {
         labelReplay.disabled = false;
       }
     }
 
-    function attempt() {
-      if (!labelInput) return;
-      const raw = labelInput.value || "";
-      const answer = raw.replace(/\s+/g, "").toUpperCase();
-      if (answer.length !== LABEL_SEQUENCE.length) {
-        showToast("네 글자를 모두 입력하세요.", 1300);
-        labelInput.focus();
-        return;
-      }
-      if (answer === LABEL_SEQUENCE.join("")) {
-        showToast("해독 성공! 증거 획득");
-        go("label_done");
-      } else {
-        showToast("기억과 다르다. 다시 시도!", 1400);
-        labelInput.select();
-      }
-    }
-
     puzzleLabel.classList.remove("hidden");
-    if (labelInput) {
-      labelInput.value = "";
-      labelInput.onkeydown = (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          attempt();
-        }
-      };
-      labelInput.oninput = () => {
-        labelInput.value = labelInput.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, LABEL_SEQUENCE.length);
-      };
-    }
-    if (labelSubmit) {
-      labelSubmit.onclick = attempt;
-    }
     if (labelReplay) {
       labelReplay.onclick = () => {
         startReveal();
@@ -520,8 +585,7 @@ button:hover { filter:brightness(1.1) }
         labelCountdown: nodes.root.querySelector("#labelCountdown"),
         labelContent: nodes.root.querySelector("#labelContent"),
         labelPrompt: nodes.root.querySelector("#labelPrompt"),
-        labelInput: nodes.root.querySelector("#labelInput"),
-        labelSubmit: nodes.root.querySelector("#labelSubmit"),
+        labelBoard: nodes.root.querySelector("#labelBoard"),
         labelReplay: nodes.root.querySelector("#labelReplay"),
         puzzleKey: nodes.root.querySelector("#puzzleKey"),
         codeDisp: nodes.root.querySelector("#codeDisp"),
