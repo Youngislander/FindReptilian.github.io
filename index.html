@@ -160,6 +160,7 @@
         </div>
       </div>
     </div>
+    <div id="intro-root"></div>
     <script src="./green-juice-game.js"></script>
     <script>
       (function () {
@@ -168,16 +169,18 @@
           const introSection = document.getElementById("intro-section");
           const gameSection = document.getElementById("game-section");
           const root = document.getElementById("game-root");
-          if (!startButton || !introSection || !gameSection || !root || !window.GreenJuiceGame) {
+          if (!gameSection || !root || !window.GreenJuiceGame) {
             return;
           }
 
           let started = false;
 
-          startButton.addEventListener("click", () => {
+          function startExperience() {
             if (started) return;
             started = true;
-            introSection.classList.add("is-hidden");
+            if (introSection) {
+              introSection.classList.add("is-hidden");
+            }
             gameSection.classList.remove("is-hidden");
 
             window.GreenJuiceGame.mount({
@@ -188,7 +191,13 @@
               },
             });
             window.GreenJuiceGame.start();
-          });
+          }
+
+          if (startButton) {
+            startButton.addEventListener("click", startExperience);
+          }
+
+          window.addEventListener("greenjuice:introComplete", startExperience, { once: false });
         }
 
         if (document.readyState === "loading") {
@@ -197,6 +206,420 @@
           init();
         }
       })();
+    </script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel" data-presets="env,react">
+      const { useMemo, useState, useEffect, useRef, useCallback } = React;
+
+      function HeroIllust() {
+        return (
+          <svg
+            viewBox="0 0 600 360"
+            style={{
+              width: "min(92vw, 820px)",
+              maxWidth: 900,
+              height: "auto",
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "linear-gradient(180deg,#070a13,#0a0f1f)",
+            }}
+          >
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0f172a" />
+                <stop offset="100%" stopColor="#0b1320" />
+              </linearGradient>
+              <pattern id="scales" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M0,10 Q5,0 10,10" fill="none" stroke="#3fa66b" strokeWidth="1" />
+              </pattern>
+            </defs>
+            <rect x="0" y="0" width="600" height="360" fill="url(#g1)" />
+            <g transform="translate(300,180)">
+              <ellipse cx="0" cy="0" rx="120" ry="140" fill="#e5e7eb" stroke="#0c1220" strokeWidth="4" />
+              <line x1="0" y1="-140" x2="0" y2="140" stroke="#0c1220" strokeWidth="4" />
+              <clipPath id="rightHalf">
+                <rect x="0" y="-160" width="160" height="320" />
+              </clipPath>
+              <g clipPath="url(#rightHalf)">
+                <ellipse cx="0" cy="0" rx="120" ry="140" fill="#0f3b33" />
+                <ellipse cx="50" cy="-10" rx="26" ry="18" fill="#d6b410" stroke="#0b1220" strokeWidth="4" />
+                <circle cx="58" cy="-10" r="6" fill="#0b1220" />
+                <rect x="-120" y="-140" width="240" height="280" fill="url(#scales)" opacity="0.4" />
+              </g>
+              <clipPath id="leftHalf">
+                <rect x="-160" y="-160" width="160" height="320" />
+              </clipPath>
+              <g clipPath="url(#leftHalf)">
+                <ellipse cx="0" cy="0" rx="120" ry="140" fill="#cbd5e1" />
+                <ellipse cx="-50" cy="-12" rx="22" ry="14" fill="#1e293b" />
+                <circle cx="-52" cy="-12" r="5" fill="#93c5fd" />
+              </g>
+              <path d="M-30,50 Q0,70 30,50" stroke="#0b1220" strokeWidth="7" fill="none" strokeLinecap="round" />
+            </g>
+            <text
+              x="300"
+              y="330"
+              textAnchor="middle"
+              fill="#dee2e6"
+              style={{ fontFamily: "ui-sans-serif", fontSize: 18, fontWeight: 800 }}
+            >
+              반은 인간, 반은 랩틸리언
+            </text>
+          </svg>
+        );
+      }
+
+      function TitleScreen({ onStart }) {
+        const introLines = useMemo(
+          () => [
+            "처음엔… 별거 아닌 줄 알았다.",
+            "사람들이 말을 할 때, 눈을 깜빡이지 않는 순간이 있었다.",
+            "탕비실에서는 녹즙 냄새가 너무 진하게 났고, 회의실에서는 누군가 입술을 핥는 소리가 났다.",
+            "다들 평범한 동료들이었다. 적어도… 겉모습은.",
+          ],
+          [],
+        );
+        const finalLine = useMemo(() => "— 이 회사엔 분명 한 명 있다.\n\n인간이 아닌 자가..", []);
+        const [introPhase, setIntroPhase] = useState("idle");
+        const [lineIndex, setLineIndex] = useState(0);
+        const [charIndex, setCharIndex] = useState(0);
+        const [renderedLines, setRenderedLines] = useState(() => introLines.map(() => ""));
+        const [hasIntroStarted, setHasIntroStarted] = useState(false);
+        const audioRef = useRef(null);
+        const typingAudioRef = useRef(null);
+        const activeTypingAudiosRef = useRef([]);
+        const [finalRendered, setFinalRendered] = useState("");
+        const [finalCharIndex, setFinalCharIndex] = useState(0);
+        const [finalTypingDone, setFinalTypingDone] = useState(false);
+        const finalButtonDelayMs = 1000;
+
+        const playTypingSound = useCallback(() => {
+          const base = typingAudioRef.current;
+          if (!base) return;
+          const clone = base.cloneNode();
+          clone.volume = 0.45;
+          const sounds = activeTypingAudiosRef.current;
+          const removeClone = () => {
+            clone.removeEventListener("ended", removeClone);
+            clone.removeEventListener("error", removeClone);
+            const idx = sounds.indexOf(clone);
+            if (idx >= 0) {
+              sounds.splice(idx, 1);
+            }
+          };
+          clone.addEventListener("ended", removeClone);
+          clone.addEventListener("error", removeClone);
+          sounds.push(clone);
+          const playPromise = clone.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {
+              removeClone();
+            });
+          }
+        }, []);
+
+        useEffect(() => () => {
+          const sounds = activeTypingAudiosRef.current;
+          sounds.forEach((audio) => {
+            try {
+              audio.pause();
+            } catch (err) {}
+          });
+          sounds.length = 0;
+        }, []);
+
+        useEffect(() => {
+          if (introPhase !== "typing") return;
+
+          if (lineIndex >= introLines.length) {
+            const timeout = setTimeout(() => setIntroPhase("final"), 700);
+            return () => clearTimeout(timeout);
+          }
+
+          const target = introLines[lineIndex];
+          if (charIndex < target.length) {
+            const timeout = setTimeout(() => {
+              setRenderedLines((prev) => {
+                const next = prev.slice();
+                const current = next[lineIndex] || "";
+                next[lineIndex] = current + target[charIndex];
+                return next;
+              });
+              playTypingSound();
+              setCharIndex((prev) => prev + 1);
+            }, 45);
+            return () => clearTimeout(timeout);
+          }
+
+          const timeout = setTimeout(() => {
+            setLineIndex(lineIndex + 1);
+            setCharIndex(0);
+          }, 650);
+          return () => clearTimeout(timeout);
+        }, [introPhase, lineIndex, charIndex, introLines, playTypingSound]);
+
+        useEffect(() => {
+          const audioEl = audioRef.current;
+          if (!audioEl) return;
+          if (hasIntroStarted) {
+            audioEl.currentTime = 0;
+            audioEl.volume = 0.35;
+            const playPromise = audioEl.play();
+            if (playPromise && typeof playPromise.catch === "function") {
+              playPromise.catch(() => {});
+            }
+          } else {
+            audioEl.pause();
+            audioEl.currentTime = 0;
+          }
+          return () => {
+            audioEl.pause();
+            audioEl.currentTime = 0;
+          };
+        }, [hasIntroStarted]);
+
+        useEffect(() => {
+          if (introPhase !== "final") return;
+          setFinalRendered("");
+          setFinalCharIndex(0);
+          setFinalTypingDone(false);
+        }, [introPhase, finalLine]);
+
+        useEffect(() => {
+          if (introPhase !== "final") return;
+          if (finalTypingDone) return;
+          if (finalCharIndex < finalLine.length) {
+            const timeout = setTimeout(() => {
+              setFinalRendered((prev) => prev + finalLine[finalCharIndex]);
+              playTypingSound();
+              setFinalCharIndex((prev) => prev + 1);
+            }, 55);
+            return () => clearTimeout(timeout);
+          }
+          const timeout = setTimeout(() => setFinalTypingDone(true), finalButtonDelayMs);
+          return () => clearTimeout(timeout);
+        }, [introPhase, finalCharIndex, finalLine, finalTypingDone, playTypingSound]);
+
+        const handlePrimaryClick = () => {
+          if (!hasIntroStarted) {
+            setHasIntroStarted(true);
+            setRenderedLines(introLines.map(() => ""));
+            setLineIndex(0);
+            setCharIndex(0);
+            setIntroPhase("typing");
+            return;
+          }
+
+          if (introPhase === "idle") {
+            onStart?.();
+          }
+        };
+
+        const overlayVisible = introPhase === "typing" || introPhase === "final";
+        const buttonLabel = hasIntroStarted ? "게임 시작" : "START";
+        const buttonDisabled = introPhase === "typing" || introPhase === "final";
+
+        return (
+          <div style={styles.titleRoot}>
+            <audio ref={audioRef} src="./BGM_01.mp3" loop preload="auto" style={{ display: "none" }} />
+            <audio ref={typingAudioRef} src="./writing_01.mp3" preload="auto" style={{ display: "none" }} />
+            <HeroIllust />
+            <div style={styles.titleBox}>
+              <div style={{ fontWeight: 900, fontSize: 28, letterSpacing: 1 }}>랩틸리언을 찾아라</div>
+              <div style={{ opacity: 0.9, marginTop: 6 }}>반은 인간, 반은 랩틸리언… 오늘도 평범한 회사?</div>
+              <button
+                style={{
+                  ...styles.btnPrimary,
+                  opacity: buttonDisabled ? 0.7 : 1,
+                  cursor: buttonDisabled ? "default" : "pointer",
+                }}
+                onClick={handlePrimaryClick}
+                disabled={buttonDisabled}
+              >
+                {buttonLabel}
+              </button>
+            </div>
+            {overlayVisible && (
+              <div
+                style={{
+                  ...styles.introOverlay,
+                  backgroundColor: introPhase === "final" ? "rgba(6,9,17,0.92)" : "rgba(4,6,14,0.96)",
+                  pointerEvents: "auto",
+                }}
+              >
+                {hasIntroStarted && (
+                  <button
+                    onClick={() => onStart?.()}
+                    style={{
+                      position: "absolute",
+                      top: 24,
+                      right: 28,
+                      padding: "8px 16px",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      borderRadius: 999,
+                      border: "1px solid rgba(255,255,255,0.3)",
+                      background: "rgba(15,23,42,0.7)",
+                      color: "#f8fafc",
+                      cursor: "pointer",
+                      boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    Skip
+                  </button>
+                )}
+                {introPhase === "typing" ? (
+                  <div style={styles.introBox}>
+                    {introLines.map((line, idx) => {
+                      const text = renderedLines[idx] || (idx < lineIndex ? line : "");
+                      if (!text) return null;
+                      return (
+                        <div key={idx} style={styles.introLine}>
+                          {text}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={styles.introFinalBox}>
+                    <div style={styles.introFinalLineGroup}>
+                      {finalRendered.split("\n").map((line, idx, arr) => {
+                        if (!line.trim()) {
+                          return <div key={idx} style={{ height: idx === arr.length - 1 ? 0 : 16 }} />;
+                        }
+                        const trimmed = line.trim();
+                        const targetFinalLine = "인간이 아닌 자가..";
+                        const highlight = targetFinalLine.startsWith(trimmed) || trimmed.startsWith(targetFinalLine);
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              ...styles.introFinalLine,
+                              ...(highlight ? styles.introFinalLineEmphasis : null),
+                            }}
+                          >
+                            {line}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      style={{
+                        ...styles.btnPrimary,
+                        opacity: finalTypingDone ? 1 : 0,
+                        pointerEvents: finalTypingDone ? "auto" : "none",
+                        transform: finalTypingDone ? "translateY(0)" : "translateY(12px)",
+                        transition: "opacity 0.6s ease, transform 0.6s ease",
+                      }}
+                      onClick={() => onStart?.()}
+                    >
+                      출근하기
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      function IntroApp({ onComplete }) {
+        const [dismissed, setDismissed] = useState(false);
+
+        const handleStart = useCallback(() => {
+          if (dismissed) return;
+          setDismissed(true);
+          onComplete?.();
+        }, [dismissed, onComplete]);
+
+        if (dismissed) {
+          return null;
+        }
+
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 120,
+              background: "radial-gradient(900px 400px at 50% 0%, #0a0e1a, #070a13)",
+            }}
+          >
+            <TitleScreen onStart={handleStart} />
+          </div>
+        );
+      }
+
+      function renderIntroOverlay() {
+        const container = document.getElementById("intro-root");
+        if (!container) return;
+        const root = ReactDOM.createRoot(container);
+        const handleComplete = () => {
+          root.unmount();
+          const event = new CustomEvent("greenjuice:introComplete");
+          window.dispatchEvent(event);
+        };
+        root.render(<IntroApp onComplete={handleComplete} />);
+      }
+
+      const styles = {
+        titleRoot: {
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          padding: 16,
+          boxSizing: "border-box",
+          background: "radial-gradient(900px 400px at 50% 0%, #0a0e1a, #070a13)",
+          color: "#e5e7eb",
+          position: "relative",
+          overflow: "hidden",
+        },
+        titleBox: { textAlign: "center", marginTop: 16 },
+        btnPrimary: {
+          padding: "10px 14px",
+          background: "#10b981",
+          color: "#0b1020",
+          border: "none",
+          borderRadius: 10,
+          fontWeight: 800,
+          cursor: "pointer",
+          marginTop: 12,
+        },
+        introOverlay: {
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0 24px",
+          zIndex: 20,
+          color: "#f8fafc",
+          textAlign: "left",
+          transition: "opacity 0.9s ease, filter 0.9s ease, background-color 0.9s ease",
+        },
+        introBox: {
+          width: "min(760px,92vw)",
+          display: "grid",
+          gap: 18,
+          fontSize: 20,
+          lineHeight: 1.9,
+          fontWeight: 600,
+          fontFamily: "'Nanum Gothic Coding','Fira Mono',monospace",
+        },
+        introLine: { letterSpacing: 0.2 },
+        introFinalBox: { width: "min(640px,88vw)", display: "grid", gap: 28, textAlign: "center" },
+        introFinalLineGroup: { display: "grid", justifyItems: "center", gap: 4 },
+        introFinalLine: { fontSize: 28, fontStyle: "italic", fontWeight: 800, lineHeight: 1.7, letterSpacing: 0.4 },
+        introFinalLineEmphasis: { color: "#ef4444", fontSize: 34, fontStyle: "normal", fontWeight: 900, letterSpacing: 0.6 },
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", renderIntroOverlay, { once: true });
+      } else {
+        renderIntroOverlay();
+      }
     </script>
   </body>
 </html>
