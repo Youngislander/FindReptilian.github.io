@@ -23,10 +23,13 @@
   .note { font-size:12px; opacity:.85; margin-top:10px }
   .label-flash { margin-top:12px; padding:18px; border:1px dashed #3c3c6b; border-radius:12px; background:rgba(18,18,60,0.6); display:grid; place-items:center; gap:12px; min-height:120px; text-align:center }
   .label-countdown { font:700 42px/1 "Orbitron", ui-monospace, monospace; color:#60a5fa }
-  .label-content { font:700 22px/1.4 ui-monospace, Menlo, monospace; letter-spacing:4px; text-transform:uppercase; text-align:center; color:#f5f3ff }
-  .label-content .label-line { display:block }
-  .label-content .icons { font-size:28px; letter-spacing:10px }
-  .label-content .letters { font-size:20px; letter-spacing:6px }
+  .label-content { font:700 20px/1.4 ui-monospace, Menlo, monospace; text-transform:uppercase; color:#f5f3ff; display:grid; gap:12px; justify-items:center; text-align:center }
+  .label-content .label-line { display:block; letter-spacing:2px }
+  .label-content .label-line.prompt { font-size:18px; color:#c7d2fe }
+  .label-content .label-pairs { width:100%; border-collapse:separate; border-spacing:18px 10px }
+  .label-content .label-pairs td { background:rgba(17,17,45,0.85); border:1px solid #303070; border-radius:12px; padding:12px 10px; min-width:76px }
+  .label-content .label-pairs .icon { display:block; font-size:30px; margin-bottom:8px }
+  .label-content .label-pairs .letter { display:block; font-size:20px; letter-spacing:4px }
   .label-prompt { margin-top:16px; display:grid; gap:12px }
   .label-board { display:grid; grid-template-columns:repeat(4, minmax(64px, 1fr)); gap:10px }
   .label-controls { display:flex; justify-content:flex-end }
@@ -40,6 +43,10 @@
   .ghost-button:hover { filter:brightness(1.08) }
   .keypad { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:8px }
   .code { font: 700 20px/1 ui-monospace, Menlo, monospace; letter-spacing:2px; padding:6px 8px; background:#0e0e22; border:1px solid #2a2a58; border-radius:8px; text-align:center }
+  .modal { position:fixed; inset:0; display:grid; place-items:center; background:rgba(10,10,40,0.68); padding:20px; z-index:1000 }
+  .modal-content { width:min(320px, 100%); background:#161636; border:1px solid #2a2a58; border-radius:14px; padding:18px; box-shadow:0 18px 36px rgba(0,0,0,0.35); display:grid; gap:16px }
+  .modal-message { line-height:1.6; text-align:left; font-size:14px; color:#e2e8f0 }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px }
   .hidden { display:none }
   .toast { position:fixed; right:16px; bottom:16px; background:#22224a; color:#eee; padding:10px 12px; border:1px solid #2a2a58; border-radius:8px }
 </style>
@@ -67,9 +74,9 @@
     <!-- 퍼즐1: 라벨 기억 -->
     <div id="puzzleLabel" class="hidden">
       <div class="row"><b>라벨 해독</b><span class="note">3초 동안 카드 위치를 기억한 뒤 아이콘과 문자를 짝지으세요.</span></div>
-      <div id="labelFlash" class="label-flash">
-        <div id="labelCountdown" class="label-countdown">3</div>
-        <div id="labelContent" class="label-content"></div>
+        <div id="labelFlash" class="label-flash">
+          <div id="labelCountdown" class="label-countdown">3</div>
+          <div id="labelContent" class="label-content"></div>
       </div>
       <div id="labelPrompt" class="label-prompt hidden">
         <div class="note">카드를 기억한 뒤, 아이콘과 알파벳을 짝지어 모두 맞춰보세요. 공개 시간은 3초뿐입니다.</div>
@@ -96,6 +103,15 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <div id="modalMessage" class="modal-message"></div>
+      <div class="modal-actions">
+        <button type="button" id="modalCancel">닫기</button>
+        <button type="button" id="modalConfirm" class="ghost-button">확인</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="./green-juice-game.js"></script>

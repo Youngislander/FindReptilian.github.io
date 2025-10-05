@@ -48,6 +48,15 @@
     </div>
   </div>
   <div id="toast" class="toast hidden"></div>
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <div id="modalMessage" class="modal-message"></div>
+      <div class="modal-actions">
+        <button type="button" id="modalCancel">닫기</button>
+        <button type="button" id="modalConfirm" class="ghost-button">확인</button>
+      </div>
+    </div>
+  </div>
 </div>`;
 
   const STYLES = `
@@ -68,10 +77,13 @@ button:hover { filter:brightness(1.1) }
 .note { font-size:12px; opacity:.85; margin-top:10px }
 .label-flash { margin-top:12px; padding:18px; border:1px dashed #3c3c6b; border-radius:12px; background:rgba(18,18,60,0.6); display:grid; place-items:center; gap:12px; min-height:120px; text-align:center }
 .label-countdown { font:700 42px/1 "Orbitron", ui-monospace, monospace; color:#60a5fa }
-.label-content { font:700 22px/1.4 ui-monospace, Menlo, monospace; letter-spacing:4px; text-transform:uppercase; text-align:center; color:#f5f3ff }
-.label-content .label-line { display:block }
-.label-content .icons { font-size:28px; letter-spacing:10px }
-.label-content .letters { font-size:20px; letter-spacing:6px }
+.label-content { font:700 20px/1.4 ui-monospace, Menlo, monospace; text-transform:uppercase; color:#f5f3ff; display:grid; gap:12px; justify-items:center; text-align:center }
+.label-content .label-line { display:block; letter-spacing:2px }
+.label-content .label-line.prompt { font-size:18px; color:#c7d2fe }
+.label-content .label-pairs { width:100%; border-collapse:separate; border-spacing:18px 10px }
+.label-content .label-pairs td { background:rgba(17,17,45,0.85); border:1px solid #303070; border-radius:12px; padding:12px 10px; min-width:76px }
+.label-content .label-pairs .icon { display:block; font-size:30px; margin-bottom:8px }
+.label-content .label-pairs .letter { display:block; font-size:20px; letter-spacing:4px }
 .label-prompt { margin-top:16px; display:grid; gap:12px }
 .label-board { display:grid; grid-template-columns:repeat(4, minmax(64px, 1fr)); gap:10px }
 .label-controls { display:flex; justify-content:flex-end }
@@ -85,6 +97,10 @@ button:hover { filter:brightness(1.1) }
 .ghost-button:hover { filter:brightness(1.08) }
 .keypad { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:8px }
 .code { font: 700 20px/1 ui-monospace, Menlo, monospace; letter-spacing:2px; padding:6px 8px; background:#0e0e22; border:1px solid #2a2a58; border-radius:8px; text-align:center }
+.modal { position:fixed; inset:0; display:grid; place-items:center; background:rgba(10,10,40,0.68); padding:20px; z-index:1000 }
+.modal-content { width:min(320px, 100%); background:#161636; border:1px solid #2a2a58; border-radius:14px; padding:18px; box-shadow:0 18px 36px rgba(0,0,0,0.35); display:grid; gap:16px }
+.modal-message { line-height:1.6; text-align:left; font-size:14px; color:#e2e8f0 }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px }
 .hidden { display:none }
 .toast { position:fixed; right:16px; bottom:16px; background:#22224a; color:#eee; padding:10px 12px; border:1px solid #2a2a58; border-radius:8px }
 `;
@@ -96,7 +112,6 @@ button:hover { filter:brightness(1.1) }
     ["🧪", "L"],
     ["🧊", "O"],
   ];
-  const LABEL_SEQUENCE = PAIRS.map(([, ch]) => ch);
   const CODE = ["3", "8", "3", "6"];
 
   let STATE = null;
@@ -118,17 +133,65 @@ button:hover { filter:brightness(1.1) }
     if (!container) return;
     container.innerHTML = "";
     const promptLine = document.createElement("div");
-    promptLine.className = "label-line";
+    promptLine.className = "label-line prompt";
     promptLine.textContent = "카드를 기억하세요!";
-    const iconsLine = document.createElement("div");
-    iconsLine.className = "label-line icons";
-    iconsLine.textContent = PAIRS.map(([icon]) => icon).join("   ");
-    const lettersLine = document.createElement("div");
-    lettersLine.className = "label-line letters";
-    lettersLine.textContent = LABEL_SEQUENCE.join("   ");
+    const table = document.createElement("table");
+    table.className = "label-pairs";
+    const row = document.createElement("tr");
+    PAIRS.forEach(([icon, letter]) => {
+      const cell = document.createElement("td");
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "icon";
+      iconSpan.textContent = icon;
+      const letterSpan = document.createElement("span");
+      letterSpan.className = "letter";
+      letterSpan.textContent = letter;
+      cell.appendChild(iconSpan);
+      cell.appendChild(letterSpan);
+      row.appendChild(cell);
+    });
+    table.appendChild(row);
     container.appendChild(promptLine);
-    container.appendChild(iconsLine);
-    container.appendChild(lettersLine);
+    container.appendChild(table);
+  }
+
+  function hideModal() {
+    if (!STATE || !STATE.refs) return;
+    const { modal, modalConfirm, modalCancel } = STATE.refs;
+    if (!modal) return;
+    modal.classList.add("hidden");
+    if (modalConfirm) {
+      modalConfirm.onclick = null;
+      modalConfirm.classList.remove("hidden");
+    }
+    if (modalCancel) {
+      modalCancel.onclick = null;
+    }
+  }
+
+  function showModal({ message, confirmText, cancelText, onConfirm }) {
+    if (!STATE || !STATE.refs) return;
+    const { modal, modalMessage, modalConfirm, modalCancel } = STATE.refs;
+    if (!modal || !modalMessage || !modalCancel) return;
+    modalMessage.innerHTML = message;
+    if (modalConfirm) {
+      if (confirmText) {
+        modalConfirm.textContent = confirmText;
+        modalConfirm.classList.remove("hidden");
+        modalConfirm.onclick = () => {
+          hideModal();
+          if (typeof onConfirm === "function") {
+            onConfirm();
+          }
+        };
+      } else {
+        modalConfirm.classList.add("hidden");
+        modalConfirm.onclick = null;
+      }
+    }
+    modalCancel.textContent = cancelText || (confirmText ? "취소" : "확인");
+    modalCancel.onclick = hideModal;
+    modal.classList.remove("hidden");
   }
 
   function ensureStyle() {
@@ -174,6 +237,7 @@ button:hover { filter:brightness(1.1) }
       toastTimer: null,
       labelGame: null,
       labelTimers: { interval: null, timeout: null },
+      labelStarted: false,
       refs: {},
     };
   }
@@ -224,6 +288,7 @@ button:hover { filter:brightness(1.1) }
     const { refs } = STATE;
     if (!refs) return;
     STATE.labelGame = null;
+    hideModal();
     if (refs.puzzleLabel) refs.puzzleLabel.classList.add("hidden");
     if (refs.puzzleKey) refs.puzzleKey.classList.add("hidden");
     if (refs.labelFlash) refs.labelFlash.classList.add("hidden");
@@ -242,7 +307,22 @@ button:hover { filter:brightness(1.1) }
 
     if (scene === "label_tut") {
       speak("나", "라벨은 3초 동안만 볼 수 있다. 정신 바짝 차리자.", [
-        { text: "준비됐다", onClick: startLabelPuzzle },
+        {
+          text: "준비됐다",
+          onClick: (event) => {
+            if (STATE.labelStarted) {
+              if (event && event.currentTarget) {
+                event.currentTarget.disabled = true;
+              }
+              return;
+            }
+            STATE.labelStarted = true;
+            if (event && event.currentTarget) {
+              event.currentTarget.disabled = true;
+            }
+            startLabelPuzzle();
+          },
+        },
       ]);
     }
 
@@ -384,7 +464,17 @@ button:hover { filter:brightness(1.1) }
 
     function startReveal() {
       clearLabelTimers();
-      initGame();
+      if (!STATE.labelGame) {
+        initGame();
+      }
+
+      const game = STATE.labelGame;
+      if (game) {
+        game.peek = true;
+        game.locked = true;
+        game.revealed = [];
+        updateBoard();
+      }
 
       puzzleLabel.classList.remove("hidden");
       if (labelPrompt) {
@@ -447,10 +537,34 @@ button:hover { filter:brightness(1.1) }
       }
     }
 
+    if (!STATE.labelGame) {
+      initGame();
+    } else {
+      updateBoard();
+    }
+
     puzzleLabel.classList.remove("hidden");
     if (labelReplay) {
       labelReplay.onclick = () => {
-        startReveal();
+        if (STATE.sanity <= 1) {
+          showModal({
+            message: "정신력이 거의 소진되어 다시 볼 수 없습니다.",
+            confirmText: null,
+            cancelText: "확인",
+          });
+          return;
+        }
+        showModal({
+          message: "다시 볼 시 정신력이 깎입니다.<br>카드를 다시 확인하시겠습니까?",
+          confirmText: "다시 보기",
+          cancelText: "취소",
+          onConfirm: () => {
+            STATE.sanity = Math.max(0, STATE.sanity - 1);
+            updateHUD();
+            showToast("정신력 -1", 1400);
+            startReveal();
+          },
+        });
       };
     }
 
@@ -549,6 +663,7 @@ button:hover { filter:brightness(1.1) }
     STATE.suspicion = 0;
     STATE.evidence = new Set();
     STATE.scene = "start";
+    STATE.labelStarted = false;
     updateHUD();
     hideAllPuzzles();
     go("start");
@@ -589,6 +704,10 @@ button:hover { filter:brightness(1.1) }
         labelReplay: nodes.root.querySelector("#labelReplay"),
         puzzleKey: nodes.root.querySelector("#puzzleKey"),
         codeDisp: nodes.root.querySelector("#codeDisp"),
+        modal: nodes.root.parentNode.querySelector("#modal"),
+        modalMessage: nodes.root.parentNode.querySelector("#modalMessage"),
+        modalCancel: nodes.root.parentNode.querySelector("#modalCancel"),
+        modalConfirm: nodes.root.parentNode.querySelector("#modalConfirm"),
       };
 
       updateHUD();
