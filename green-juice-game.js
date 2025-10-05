@@ -1441,14 +1441,19 @@
   };
 })(window);
 
-document.addEventListener('DOMContentLoaded', () => {
-  const root = document.getElementById('game-root');
+document.addEventListener("DOMContentLoaded", () => {
+  const root = document.getElementById("game-root");
   if (!root) return;
+  const shouldAutoStart = root.dataset.autostart === "true";
+  if (!shouldAutoStart) return;
+
+  const skipIntro = root.dataset.skipIntro === "true";
+
   window.GreenJuiceGame.mount({
     container: root,
-    flags: { skipIntro: true },
+    flags: { skipIntro },
     onEnd(result) {
-      console.log('Game Ended', result);
+      console.log("Game Ended", result);
     },
   });
   window.GreenJuiceGame.start();
