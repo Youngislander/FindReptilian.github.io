@@ -15,14 +15,25 @@
 
     <div id="vn">
       <div id="name">나</div>
-      <div id="text">인트로는 이미 끝났다. 이제 본 게임을 시작하자.</div>
+      <div id="text">정체불명의 녹즙 냄새가 새어 나온다. 머뭇거릴 시간이 없다.</div>
       <div id="choices"></div>
     </div>
 
     <div id="puzzleLabel" class="hidden">
-      <div class="row"><b>라벨 해독</b><span class="note">아이콘과 문자 카드를 짝지어 모두 맞추세요.</span></div>
-      <div id="labelGrid" class="grid" style="margin-top:8px"></div>
-      <div class="note">힌트: 🌿=C, 💧=H, 🧪=L, 🧊=O (튜토리얼 느낌)</div>
+      <div class="row"><b>라벨 해독</b><span class="note">3초 동안 라벨을 기억한 뒤 정답을 입력하세요.</span></div>
+      <div id="labelFlash" class="label-flash">
+        <div id="labelCountdown" class="label-countdown">3</div>
+        <div id="labelContent" class="label-content"></div>
+      </div>
+      <div id="labelPrompt" class="label-prompt hidden">
+        <div class="note">기억한 알파벳 네 글자를 순서대로 입력하세요.</div>
+        <div class="label-input-row">
+          <input id="labelInput" maxlength="4" autocomplete="off" spellcheck="false" />
+          <button id="labelSubmit">확인</button>
+          <button id="labelReplay" class="ghost-button">다시 보기</button>
+        </div>
+        <div class="note">힌트: 🌿=C, 💧=H, 🧪=L, 🧊=O</div>
+      </div>
     </div>
 
     <div id="puzzleKey" class="hidden">
@@ -56,9 +67,18 @@ button { padding:10px 14px; border:1px solid #2a2a58; border-radius:10px; backgr
 button:hover { filter:brightness(1.1) }
 .row { display:flex; align-items:center; gap:8px }
 .note { font-size:12px; opacity:.85; margin-top:10px }
-.grid { display:grid; grid-template-columns: repeat(4,1fr); gap:8px }
-.card { height:56px; display:grid; place-items:center; background:#202042; border:1px solid #2a2a58; border-radius:8px; cursor:pointer; user-select:none }
-.card.solved { background:#253a25; border-color:#3c8f3c }
+.label-flash { margin-top:12px; padding:18px; border:1px dashed #3c3c6b; border-radius:12px; background:rgba(18,18,60,0.6); display:grid; place-items:center; gap:12px; min-height:120px; text-align:center }
+.label-countdown { font:700 42px/1 "Orbitron", ui-monospace, monospace; color:#60a5fa }
+.label-content { font:700 22px/1.4 ui-monospace, Menlo, monospace; letter-spacing:4px; text-transform:uppercase; text-align:center; color:#f5f3ff }
+.label-content .label-line { display:block }
+.label-content .icons { font-size:28px; letter-spacing:10px }
+.label-content .letters { font-size:20px; letter-spacing:6px }
+.label-prompt { margin-top:16px; display:grid; gap:12px }
+.label-input-row { display:flex; flex-wrap:wrap; gap:8px }
+#labelInput { flex:1; min-width:140px; padding:10px 12px; border-radius:10px; border:1px solid #2a2a58; background:#0e0e26; color:#f8fafc; font:700 18px/1 ui-monospace, Menlo, monospace; text-transform:uppercase; letter-spacing:3px }
+#labelInput:focus { outline:2px solid rgba(99,102,241,0.7); outline-offset:2px }
+.ghost-button { border-color:rgba(99,102,241,0.55); background:rgba(17,17,40,0.85); color:#dbeafe }
+.ghost-button:hover { filter:brightness(1.08) }
 .keypad { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:8px }
 .code { font: 700 20px/1 ui-monospace, Menlo, monospace; letter-spacing:2px; padding:6px 8px; background:#0e0e22; border:1px solid #2a2a58; border-radius:8px; text-align:center }
 .hidden { display:none }
@@ -72,9 +92,36 @@ button:hover { filter:brightness(1.1) }
     ["🧪", "L"],
     ["🧊", "O"],
   ];
+  const LABEL_SEQUENCE = PAIRS.map(([, ch]) => ch);
   const CODE = ["3", "8", "1", "5"];
 
   let STATE = null;
+
+  function clearLabelTimers() {
+    if (!STATE || !STATE.labelTimers) return;
+    const { labelTimers } = STATE;
+    if (labelTimers.interval) {
+      clearInterval(labelTimers.interval);
+      labelTimers.interval = null;
+    }
+    if (labelTimers.timeout) {
+      clearTimeout(labelTimers.timeout);
+      labelTimers.timeout = null;
+    }
+  }
+
+  function renderLabelContent(container) {
+    if (!container) return;
+    container.innerHTML = "";
+    const iconsLine = document.createElement("div");
+    iconsLine.className = "label-line icons";
+    iconsLine.textContent = PAIRS.map(([icon]) => icon).join("   ");
+    const lettersLine = document.createElement("div");
+    lettersLine.className = "label-line letters";
+    lettersLine.textContent = LABEL_SEQUENCE.join("   ");
+    container.appendChild(iconsLine);
+    container.appendChild(lettersLine);
+  }
 
   function ensureStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -117,6 +164,7 @@ button:hover { filter:brightness(1.1) }
       root: null,
       toast: null,
       toastTimer: null,
+      labelTimers: { interval: null, timeout: null },
       refs: {},
     };
   }
@@ -163,8 +211,13 @@ button:hover { filter:brightness(1.1) }
   }
 
   function hideAllPuzzles() {
-    STATE.refs.puzzleLabel.classList.add("hidden");
-    STATE.refs.puzzleKey.classList.add("hidden");
+    clearLabelTimers();
+    const { refs } = STATE;
+    if (!refs) return;
+    if (refs.puzzleLabel) refs.puzzleLabel.classList.add("hidden");
+    if (refs.puzzleKey) refs.puzzleKey.classList.add("hidden");
+    if (refs.labelFlash) refs.labelFlash.classList.add("hidden");
+    if (refs.labelPrompt) refs.labelPrompt.classList.add("hidden");
   }
 
   function go(scene) {
@@ -172,14 +225,14 @@ button:hover { filter:brightness(1.1) }
     hideAllPuzzles();
 
     if (scene === "start") {
-      speak("나", "인트로는 끝났다. 보라의 녹즙… 뭔가 수상하다.", [
-        { text: "라벨을 확인한다", onClick: () => go("label_tut") },
+      speak("나", "정체불명의 녹즙… 냉장고 라벨부터 확인하자.", [
+        { text: "라벨을 살핀다", onClick: () => go("label_tut") },
       ]);
     }
 
     if (scene === "label_tut") {
-      speak("나", "라벨에 아이콘만 있다. 간단히 해독해보자.", [
-        { text: "시작", onClick: startLabelPuzzle },
+      speak("나", "라벨은 3초 동안만 볼 수 있다. 정신 바짝 차리자.", [
+        { text: "준비됐다", onClick: startLabelPuzzle },
       ]);
     }
 
@@ -187,7 +240,7 @@ button:hover { filter:brightness(1.1) }
       STATE.evidence.add("label");
       STATE.suspicion = Math.min(100, STATE.suspicion + 40);
       updateHUD();
-      speak("시스템", "라벨에서 C/H/L/O를 해독했다.", [
+      speak("시스템", "라벨에서 C/H/L/O 조합을 기억해냈다.", [
         { text: "냉장고를 확인한다", onClick: () => go("key_intro") },
       ]);
     }
@@ -210,59 +263,133 @@ button:hover { filter:brightness(1.1) }
   }
 
   function startLabelPuzzle() {
-    const grid = STATE.refs.labelGrid;
-    const container = STATE.refs.puzzleLabel;
-    container.classList.remove("hidden");
-    grid.innerHTML = "";
+    const {
+      puzzleLabel,
+      labelFlash,
+      labelCountdown,
+      labelContent,
+      labelPrompt,
+      labelInput,
+      labelSubmit,
+      labelReplay,
+    } = STATE.refs;
 
-    const cards = [];
-    PAIRS.forEach(([icon, ch]) => {
-      cards.push({ k: icon, t: "i" });
-      cards.push({ k: ch, t: "c" });
-    });
-    shuffle(cards);
+    if (!puzzleLabel) return;
 
-    let opened = [];
-    let solved = 0;
+    const timers = STATE.labelTimers;
+    const revealDuration = 3000;
 
-    cards.forEach((data) => {
-      const el = document.createElement("div");
-      el.className = "card";
-      el.textContent = "?";
-      el.onclick = () => {
-        if (el.classList.contains("solved") || opened.length === 2) return;
-        if (opened.some((item) => item.el === el)) return;
-        el.textContent = data.k;
-        opened.push({ el, data });
-        if (opened.length === 2) {
-          const [a, b] = opened;
-          if (isPair(a.data, b.data)) {
-            a.el.classList.add("solved");
-            b.el.classList.add("solved");
-            solved += 1;
-            opened = [];
-            if (solved === PAIRS.length) {
-              showToast("해독 성공! 증거 획득");
-              go("label_done");
-            }
-          } else {
-            setTimeout(() => {
-              a.el.textContent = "?";
-              b.el.textContent = "?";
-              opened = [];
-            }, 550);
+    function startReveal() {
+      clearLabelTimers();
+      if (labelFlash) {
+        labelFlash.classList.remove("hidden");
+      }
+      if (labelPrompt) {
+        labelPrompt.classList.add("hidden");
+      }
+      if (labelInput) {
+        labelInput.disabled = true;
+      }
+      if (labelSubmit) {
+        labelSubmit.disabled = true;
+      }
+      if (labelReplay) {
+        labelReplay.disabled = true;
+      }
+      if (labelCountdown) {
+        labelCountdown.classList.remove("hidden");
+        labelCountdown.textContent = "3";
+      }
+      renderLabelContent(labelContent);
+
+      let remaining = 3;
+      timers.interval = setInterval(() => {
+        remaining -= 1;
+        if (!labelCountdown) return;
+        if (remaining > 0) {
+          labelCountdown.textContent = String(remaining);
+        } else {
+          labelCountdown.textContent = "0";
+          if (timers.interval) {
+            clearInterval(timers.interval);
+            timers.interval = null;
           }
         }
-      };
-      grid.appendChild(el);
-    });
+      }, 1000);
 
-    function isPair(a, b) {
-      if (a.t === b.t) return false;
-      const icon = a.t === "i" ? a.k : b.k;
-      const ch = a.t === "c" ? a.k : b.k;
-      return PAIRS.some(([I, C]) => I === icon && C === ch);
+      timers.timeout = setTimeout(() => {
+        showPrompt();
+      }, revealDuration);
     }
+
+    function showPrompt() {
+      clearLabelTimers();
+      if (labelFlash) {
+        labelFlash.classList.add("hidden");
+      }
+      if (labelPrompt) {
+        labelPrompt.classList.remove("hidden");
+      }
+      if (labelCountdown) {
+        labelCountdown.classList.add("hidden");
+      }
+      if (labelContent) {
+        labelContent.innerHTML = "";
+      }
+      if (labelInput) {
+        labelInput.disabled = false;
+        labelInput.focus();
+        labelInput.select();
+      }
+      if (labelSubmit) {
+        labelSubmit.disabled = false;
+      }
+      if (labelReplay) {
+        labelReplay.disabled = false;
+      }
+    }
+
+    function attempt() {
+      if (!labelInput) return;
+      const raw = labelInput.value || "";
+      const answer = raw.replace(/\s+/g, "").toUpperCase();
+      if (answer.length !== LABEL_SEQUENCE.length) {
+        showToast("네 글자를 모두 입력하세요.", 1300);
+        labelInput.focus();
+        return;
+      }
+      if (answer === LABEL_SEQUENCE.join("")) {
+        showToast("해독 성공! 증거 획득");
+        go("label_done");
+      } else {
+        showToast("기억과 다르다. 다시 시도!", 1400);
+        labelInput.select();
+      }
+    }
+
+    puzzleLabel.classList.remove("hidden");
+    if (labelInput) {
+      labelInput.value = "";
+      labelInput.onkeydown = (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          attempt();
+        }
+      };
+      labelInput.oninput = () => {
+        labelInput.value = labelInput.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, LABEL_SEQUENCE.length);
+      };
+    }
+    if (labelSubmit) {
+      labelSubmit.onclick = attempt;
+    }
+    if (labelReplay) {
+      labelReplay.onclick = () => {
+        startReveal();
+      };
+    }
+
+    startReveal();
   }
 
   function startKeypadPuzzle() {
@@ -366,14 +493,6 @@ button:hover { filter:brightness(1.1) }
     return a.length === b.length && a.every((v, i) => v === b[i]);
   }
 
-  function shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
   const api = {
     mount({ container, onEnd } = {}) {
       ensureStyle();
@@ -397,14 +516,20 @@ button:hover { filter:brightness(1.1) }
         text: nodes.root.querySelector("#text"),
         choices: nodes.root.querySelector("#choices"),
         puzzleLabel: nodes.root.querySelector("#puzzleLabel"),
-        labelGrid: nodes.root.querySelector("#labelGrid"),
+        labelFlash: nodes.root.querySelector("#labelFlash"),
+        labelCountdown: nodes.root.querySelector("#labelCountdown"),
+        labelContent: nodes.root.querySelector("#labelContent"),
+        labelPrompt: nodes.root.querySelector("#labelPrompt"),
+        labelInput: nodes.root.querySelector("#labelInput"),
+        labelSubmit: nodes.root.querySelector("#labelSubmit"),
+        labelReplay: nodes.root.querySelector("#labelReplay"),
         puzzleKey: nodes.root.querySelector("#puzzleKey"),
         codeDisp: nodes.root.querySelector("#codeDisp"),
       };
 
       updateHUD();
       hideAllPuzzles();
-      speak("나", "인트로는 이미 끝났다. 이제 본 게임을 시작하자.");
+      speak("나", "정체불명의 녹즙 냄새가 난다. 머뭇거리면 놓친다.");
     },
     start() {
       checkMounted();
@@ -412,6 +537,7 @@ button:hover { filter:brightness(1.1) }
     },
     destroy() {
       if (!STATE || !STATE.root) return;
+      clearLabelTimers();
       if (STATE.toastTimer) {
         clearTimeout(STATE.toastTimer);
       }
