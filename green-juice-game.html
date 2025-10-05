@@ -1,43 +1,84 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Green Juice Game Segment</title>
-    <style>
-      #demo-wrapper {
-        min-height: 100vh;
-        background: linear-gradient(180deg, #05070f, #0d1120);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        box-sizing: border-box;
-      }
-      #demo-wrapper h1 {
-        color: #f1f5f9;
-        font-family: "Pretendard", "Segoe UI", system-ui, -apple-system, sans-serif;
-        margin-bottom: 16px;
-        text-align: center;
-      }
-      #demo-card {
-        width: min(100%, 960px);
-        background: rgba(15, 23, 42, 0.92);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-radius: 18px;
-        padding: 20px;
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.45);
-      }
-    </style>
-  </head>
-  <body>
-    <div id="demo-wrapper">
-      <div id="demo-card">
-        <h1>Green Juice Game Segment</h1>
-        <div id="game-root" data-autostart="true" data-skip-intro="true"></div>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>녹즙 의심 – 라이트</title>
+<style id="greenjuice-lite-style">
+  /* 전체를 한 컨테이너 아래로만 스타일링: 충돌 방지 */
+  #gx-lite { max-width: 680px; margin: 24px auto; padding: 16px; font-family: ui-sans-serif, system-ui, "Noto Sans KR", Arial; color:#eee; background:#121225; border:1px solid #2a2a58; border-radius:12px }
+  .hud { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:14px }
+  .pill { padding:6px 10px; border:1px solid #2a2a58; border-radius:999px; background:#191936 }
+  .bar { height:6px; border:1px solid #2a2a58; background:#101028; border-radius:999px; overflow:hidden }
+  .bar>span { display:block; height:100% }
+  #susBar>span { background:linear-gradient(90deg,#79f,#f5c) }
+  #sanBar>span { background:linear-gradient(90deg,#7f7,#3c8) }
+  #vn { border:1px solid #2a2a58; border-radius:10px; overflow:hidden; background:#15153a }
+  #name { padding:8px 12px; font-weight:700; color:#bdbaff; border-bottom:1px solid #2a2a58 }
+  #text { padding:14px; min-height:64px; line-height:1.6 }
+  #choices { display:flex; gap:8px; flex-wrap:wrap; padding:10px 12px; border-top:1px solid #2a2a58; background:#12123a }
+  button { padding:10px 14px; border:1px solid #2a2a58; border-radius:10px; background:#1a1a3a; color:#eee; cursor:pointer }
+  button:hover { filter:brightness(1.1) }
+  .row { display:flex; align-items:center; gap:8px }
+  .note { font-size:12px; opacity:.85; margin-top:10px }
+  .grid { display:grid; grid-template-columns: repeat(4,1fr); gap:8px }
+  .card { height:56px; display:grid; place-items:center; background:#202042; border:1px solid #2a2a58; border-radius:8px; cursor:pointer; user-select:none }
+  .card.solved { background:#253a25; border-color:#3c8f3c }
+  .keypad { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:8px }
+  .code { font: 700 20px/1 ui-monospace, Menlo, monospace; letter-spacing:2px; padding:6px 8px; background:#0e0e22; border:1px solid #2a2a58; border-radius:8px; text-align:center }
+  .hidden { display:none }
+  .toast { position:fixed; right:16px; bottom:16px; background:#22224a; color:#eee; padding:10px 12px; border:1px solid #2a2a58; border-radius:8px }
+</style>
+</head>
+<body>
+
+<div data-gjl-wrapper="true">
+  <div id="gx-lite">
+    <div class="hud">
+      <div class="pill">정신력 <span id="sanVal">3</span></div>
+      <div class="pill" style="min-width:160px">의심도
+        <div id="susBar" class="bar"><span style="width:0%"></span></div>
+      </div>
+      <div class="pill" style="min-width:160px">정신력바
+        <div id="sanBar" class="bar"><span style="width:100%"></span></div>
       </div>
     </div>
-    <script src="./green-juice-game.js"></script>
-  </body>
+
+    <div id="vn">
+      <div id="name">나</div>
+      <div id="text">인트로는 이미 끝났다. 이제 본 게임을 시작하자.</div>
+      <div id="choices"></div>
+    </div>
+
+    <!-- 퍼즐1: 라벨 미니매치(4쌍) -->
+    <div id="puzzleLabel" class="hidden">
+      <div class="row"><b>라벨 해독</b><span class="note">아이콘과 문자 카드를 짝지어 모두 맞추세요.</span></div>
+      <div id="labelGrid" class="grid" style="margin-top:8px"></div>
+      <div class="note">힌트: 🌿=C, 💧=H, 🧪=L, 🧊=O (튜토리얼 느낌)</div>
+    </div>
+
+    <!-- 퍼즐2: 냉장고 키패드 -->
+    <div id="puzzleKey" class="hidden">
+      <div class="row"><b>냉장고 키패드</b><span class="note">라벨에서 얻은 힌트로 4자리를 입력하세요.</span></div>
+      <div class="code" id="codeDisp">____</div>
+      <div class="keypad">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="C">C</button><button data-k="0">0</button><button data-k="OK">OK</button>
+      </div>
+      <div class="note">힌트: 해독된 글자 “C H L O” → 알파벳 순서 번호(3 8 12 15)</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+
+<script src="./green-juice-game.js"></script>
+<script>
+  window.GreenJuiceLite.mount({ container: document.body });
+  window.GreenJuiceLite.start();
+</script>
+
+</body>
 </html>

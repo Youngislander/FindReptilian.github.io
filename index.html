@@ -169,7 +169,7 @@
           const introSection = document.getElementById("intro-section");
           const gameSection = document.getElementById("game-section");
           const root = document.getElementById("game-root");
-          if (!gameSection || !root || !window.GreenJuiceGame) {
+          if (!gameSection || !root || !window.GreenJuiceLite) {
             return;
           }
 
@@ -183,14 +183,13 @@
             }
             gameSection.classList.remove("is-hidden");
 
-            window.GreenJuiceGame.mount({
+            window.GreenJuiceLite.mount({
               container: root,
-              flags: { skipIntro: true },
               onEnd(result) {
                 console.log("Game Ended", result);
               },
             });
-            window.GreenJuiceGame.start();
+            window.GreenJuiceLite.start();
           }
 
           if (startButton) {
