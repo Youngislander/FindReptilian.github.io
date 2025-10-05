@@ -1,1460 +1,440 @@
 (function (global) {
-  const NAMESPACE = "GreenJuiceGame";
-  if (global[NAMESPACE]) {
-    console.warn("GreenJuiceGame already defined. Overwriting.");
-  }
+  const STYLE_ID = "greenjuice-lite-style";
+  const TEMPLATE = `
+<div data-gjl-wrapper="true">
+  <div id="gx-lite">
+    <div class="hud">
+      <div class="pill">정신력 <span id="sanVal">3</span></div>
+      <div class="pill" style="min-width:160px">의심도
+        <div id="susBar" class="bar"><span style="width:0%"></span></div>
+      </div>
+      <div class="pill" style="min-width:160px">정신력바
+        <div id="sanBar" class="bar"><span style="width:100%"></span></div>
+      </div>
+    </div>
 
-  const PUZZLES = {
-    pairmatch: {
-      title: "라벨 해독",
-      description:
-        "라벨에 숨겨진 기호와 의미를 짝지어야 합니다. 두 장씩 뒤집어 같은 조합을 모두 찾으세요.",
-      timeLimit: 60,
-      evidence: "label_scan",
-      successScene: "act1_result",
-      failureScene: "act1_intro",
-      hint:
-        "알파벳 뒤에 붙은 점의 개수가 영양소의 순서를 암시합니다. 같은 점 수를 먼저 찾아보세요.",
-    },
-    slider: {
-      title: "냉장고 슬라이더",
-      description:
-        "푸른 주스 병들의 위치를 재배열하세요. 기호 순서가 'PUREE' 가 되도록 이동하면 됩니다.",
-      timeLimit: 75,
-      evidence: "gel_capsule",
-      successScene: "act2_result",
-      failureScene: "act2_fridge",
-      hint:
-        "왼쪽에서 오른쪽으로 'P-U-R-E-E' 를 만들면 됩니다. 가장 오른쪽 병을 고정하고 나머지를 맞춰보세요.",
-    },
-    rhythm: {
-      title: "회의 파형",
-      description:
-        "회의 음성 파형을 복구하려면 박자에 맞춰 탭하세요. 표시가 켜졌을 때 120ms 안에 버튼을 눌러야 합니다.",
-      timeLimit: 60,
-      evidence: "voice_loop",
-      successScene: "act3_result",
-      failureScene: "act3_meeting",
-      hint:
-        "표시가 꺼지기 직전에 누르는 것이 안전합니다. 첫 박자를 놓치지 마세요.",
-    },
-    circuit: {
-      title: "덕트 회로",
-      description:
-        "푸른 노드를 따라 전류를 흘려보내세요. 경로는 A에서 F까지 이어져야 합니다.",
-      timeLimit: 90,
-      evidence: "scale_chip",
-      successScene: "act4_result",
-      failureScene: "act4_duct",
-      hint:
-        "A에서 시작해 C를 거쳐 F로 향하는 경로를 우선 살펴보세요. 빛나는 노드를 이어보세요.",
-    },
-  };
+    <div id="vn">
+      <div id="name">나</div>
+      <div id="text">인트로는 이미 끝났다. 이제 본 게임을 시작하자.</div>
+      <div id="choices"></div>
+    </div>
 
-  const EVIDENCE = {
-    label_scan: { name: "라벨 스캔", weight: 1.0, reliability: 0.7 },
-    gel_capsule: { name: "젤 캡슐", weight: 1.2, reliability: 0.8 },
-    scale_chip: { name: "비늘 조각", weight: 0.8, reliability: 0.6 },
-    voice_loop: { name: "음성 반복", weight: 1.0, reliability: 0.75 },
-    memo_note: { name: "메모", weight: 1.1, reliability: 0.9 },
-  };
+    <div id="puzzleLabel" class="hidden">
+      <div class="row"><b>라벨 해독</b><span class="note">아이콘과 문자 카드를 짝지어 모두 맞추세요.</span></div>
+      <div id="labelGrid" class="grid" style="margin-top:8px"></div>
+      <div class="note">힌트: 🌿=C, 💧=H, 🧪=L, 🧊=O (튜토리얼 느낌)</div>
+    </div>
 
-  const SCENES = {
-    act1_intro: {
-      speaker: "보라",
-      text: "“클렌즈 3일 차라 머리가 맑아져요.”",
-      choices: [
-        {
-          text: "라벨을 스캔한다",
-          puzzleKey: "pairmatch",
-        },
-      ],
-    },
-    act1_result: {
-      speaker: "나",
-      text: "“라벨… 영양성분 대신 기호?”",
-      choices: [
-        {
-          text: "증거를 정리한다",
-          effect: { addMemo: true },
-          goto: "act2_fridge",
-        },
-      ],
-    },
-    act2_fridge: {
-      speaker: "보라",
-      text: "“냉장고는 손대지 않는 게 좋아요. 온도 조절이 예민하거든요.”",
-      choices: [
-        {
-          text: "병 배열을 조작한다",
-          puzzleKey: "slider",
-        },
-        {
-          text: "잠시 숨을 고른다 (정신력 +1)",
-          effect: { sanity: 1 },
-          goto: "act2_fridge",
-        },
-      ],
-    },
-    act2_result: {
-      speaker: "나",
-      text: "병 사이에 숨겨둔 젤 캡슐을 발견했다. 식품용이 아니다. 의심이 더해진다.",
-      choices: [
-        {
-          text: "회의실로 향한다",
-          goto: "act3_meeting",
-        },
-      ],
-    },
-    act3_meeting: {
-      speaker: "보라",
-      text: "회의실에서는 녹음기가 계속 돌아간다. 파형이 이상하게 반복된다.",
-      choices: [
-        {
-          text: "파형을 재조정한다",
-          puzzleKey: "rhythm",
-        },
-        {
-          text: "지켜본다 (정신력 -1)",
-          effect: { sanity: -1 },
-          goto: "act3_meeting",
-        },
-      ],
-    },
-    act3_result: {
-      speaker: "나",
-      text: "음성 반복 패턴이 정상 회의록과 다르다. 누군가가 루프를 주입하고 있었다.",
-      choices: [
-        {
-          text: "정수기 쪽으로 간다",
-          goto: "act4_duct",
-        },
-      ],
-    },
-    act4_duct: {
-      speaker: "보라",
-      text: "정수기 뒤 덕트는 빛나고 있다. 푸른 배선들이 어지럽게 얽혀 있다.",
-      choices: [
-        {
-          text: "푸른 노드를 연결한다",
-          puzzleKey: "circuit",
-        },
-      ],
-    },
-    act4_result: {
-      speaker: "나",
-      text: "배선 사이에서 비늘 조각과 함께 기록된 메모를 찾았다. '감시자는 투명해져라'.",
-      choices: [
-        {
-          text: "보라와 대면한다",
-          goto: "final_confront",
-        },
-      ],
-    },
-    final_confront: {
-      speaker: "보라",
-      text: "“당신도 곧 맑아질 거예요. 한 잔만 마시면.”",
-      choices: [
-        {
-          text: "증거를 정리해 보여준다",
-          goto: "ending_check",
-        },
-        {
-          text: "숨겨둔 메모를 찢는다 (정신력 -2)",
-          effect: { sanity: -2 },
-          goto: "ending_check",
-        },
-      ],
-    },
-    ending_good: {
-      speaker: "시스템",
-      text: "보라는 주스 대신 물을 마셨다. 푸른 눈빛이 흐려지고 진짜 동맹들이 나타난다.",
-      choices: [
-        {
-          text: "엔딩을 기록한다",
-          effect: function () {
-            finishGame("good");
-          },
-        },
-      ],
-    },
-    ending_neutral: {
-      speaker: "시스템",
-      text: "의심은 충분했지만 결정적 순간에 보라를 놓쳤다. 라운지는 잠시 안전하지만, 내일은 다를지 모른다.",
-      choices: [
-        {
-          text: "엔딩을 기록한다",
-          effect: function () {
-            finishGame("neutral");
-          },
-        },
-      ],
-    },
-    ending_bad: {
-      speaker: "시스템",
-      text: "정신력이 무너졌다. 푸른 주스가 목을 타고 흐를 때, 진실은 비늘로 덮였다.",
-      choices: [
-        {
-          text: "엔딩을 기록한다",
-          effect: function () {
-            finishGame("bad");
-          },
-        },
-      ],
-    },
+    <div id="puzzleKey" class="hidden">
+      <div class="row"><b>냉장고 키패드</b><span class="note">라벨에서 얻은 힌트로 4자리를 입력하세요.</span></div>
+      <div class="code" id="codeDisp">____</div>
+      <div class="keypad">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="C">C</button><button data-k="0">0</button><button data-k="OK">OK</button>
+      </div>
+      <div class="note">힌트: 해독된 글자 “C H L O” → 알파벳 순서 번호(3 8 12 15)</div>
+    </div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+</div>`;
 
-  const SCENE_DAYS = {
-    act1_intro: 1,
-    act1_result: 1,
-    act2_fridge: 2,
-    act2_result: 2,
-    act3_meeting: 3,
-    act3_result: 3,
-    act4_duct: 4,
-    act4_result: 4,
-    final_confront: 4,
-  };
+  const STYLES = `
+#gx-lite { max-width: 680px; margin: 24px auto; padding: 16px; font-family: ui-sans-serif, system-ui, "Noto Sans KR", Arial; color:#eee; background:#121225; border:1px solid #2a2a58; border-radius:12px }
+.hud { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:14px }
+.pill { padding:6px 10px; border:1px solid #2a2a58; border-radius:999px; background:#191936 }
+.bar { height:6px; border:1px solid #2a2a58; background:#101028; border-radius:999px; overflow:hidden }
+.bar>span { display:block; height:100% }
+#susBar>span { background:linear-gradient(90deg,#79f,#f5c) }
+#sanBar>span { background:linear-gradient(90deg,#7f7,#3c8) }
+#vn { border:1px solid #2a2a58; border-radius:10px; overflow:hidden; background:#15153a }
+#name { padding:8px 12px; font-weight:700; color:#bdbaff; border-bottom:1px solid #2a2a58 }
+#text { padding:14px; min-height:64px; line-height:1.6 }
+#choices { display:flex; gap:8px; flex-wrap:wrap; padding:10px 12px; border-top:1px solid #2a2a58; background:#12123a }
+button { padding:10px 14px; border:1px solid #2a2a58; border-radius:10px; background:#1a1a3a; color:#eee; cursor:pointer }
+button:hover { filter:brightness(1.1) }
+.row { display:flex; align-items:center; gap:8px }
+.note { font-size:12px; opacity:.85; margin-top:10px }
+.grid { display:grid; grid-template-columns: repeat(4,1fr); gap:8px }
+.card { height:56px; display:grid; place-items:center; background:#202042; border:1px solid #2a2a58; border-radius:8px; cursor:pointer; user-select:none }
+.card.solved { background:#253a25; border-color:#3c8f3c }
+.keypad { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:8px }
+.code { font: 700 20px/1 ui-monospace, Menlo, monospace; letter-spacing:2px; padding:6px 8px; background:#0e0e22; border:1px solid #2a2a58; border-radius:8px; text-align:center }
+.hidden { display:none }
+.toast { position:fixed; right:16px; bottom:16px; background:#22224a; color:#eee; padding:10px 12px; border:1px solid #2a2a58; border-radius:8px }
+`;
+
+  const DEFAULT_SANITY = 3;
+  const PAIRS = [
+    ["🌿", "C"],
+    ["💧", "H"],
+    ["🧪", "L"],
+    ["🧊", "O"],
+  ];
+  const CODE = ["3", "8", "1", "5"];
 
   let STATE = null;
-  let mountOptions = null;
-  let rootEl = null;
-  let styleEl = null;
-  let startTimestamp = null;
-  let activePuzzle = null;
-  let countdownInterval = null;
-  let beatTimeout = null;
-  let rhythmAnimation = null;
-  const timeouts = new Set();
 
-  function initState() {
-    STATE = {
-      day: 1,
-      maxDay: 4,
-      sanity: 5,
+  function ensureStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = STYLES;
+    document.head.appendChild(style);
+  }
+
+  function createStructure(target) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = TEMPLATE;
+    const root = wrapper.querySelector("#gx-lite");
+    const toast = wrapper.querySelector("#toast");
+    const fragment = document.createDocumentFragment();
+    while (wrapper.firstChild) {
+      fragment.appendChild(wrapper.firstChild);
+    }
+    target.appendChild(fragment);
+    return { root, toast };
+  }
+
+  function collectExisting(target) {
+    const root = target.querySelector("#gx-lite");
+    const toast = target.querySelector("#toast");
+    if (root && toast) {
+      return { root, toast };
+    }
+    return null;
+  }
+
+  function createState() {
+    return {
+      sanity: DEFAULT_SANITY,
       suspicion: 0,
       evidence: new Set(),
-      hintUsed: 0,
-      sceneId: "act1_intro",
-      log: [],
-      stats: { fails: 0, hints: 0, timeSpent: 0 },
+      scene: "start",
+      onEnd: null,
+      container: null,
+      root: null,
+      toast: null,
+      toastTimer: null,
+      refs: {},
     };
   }
 
-  function ensureRoot() {
-    if (!rootEl) {
-      throw new Error("GreenJuiceGame: mount() must be called before start().");
+  function checkMounted() {
+    if (!STATE || !STATE.root) {
+      throw new Error("GreenJuiceLite is not mounted. Call mount() first.");
     }
   }
 
-  function resolveContainer(containerOrSelector) {
-    if (typeof containerOrSelector === "string") {
-      return document.querySelector(containerOrSelector);
+  function showToast(msg, ms = 1600) {
+    checkMounted();
+    const toast = STATE.toast;
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove("hidden");
+    if (STATE.toastTimer) {
+      clearTimeout(STATE.toastTimer);
     }
-    return containerOrSelector || null;
-  }
-
-  function mount(options) {
-    destroy();
-    const opts = options || {};
-    const container = resolveContainer(opts.container);
-    if (!container) {
-      throw new Error("GreenJuiceGame: valid container is required.");
-    }
-
-    mountOptions = {
-      onEnd: typeof opts.onEnd === "function" ? opts.onEnd : null,
-      assets: opts.assets || null,
-      flags: opts.flags || {},
-      handoff: opts.handoff || null,
-    };
-
-    initState();
-
-    rootEl = document.createElement("div");
-    rootEl.id = "gx-root";
-    rootEl.innerHTML = `
-      <div id="gx-layer">
-        <div id="gx-hud">
-          <div class="gx-meter">
-            <span class="gx-label">Day</span>
-            <span class="gx-value" id="gx-day"></span>
-          </div>
-          <div class="gx-meter">
-            <span class="gx-label">Sanity</span>
-            <div class="gx-bar"><div class="gx-bar-fill" id="gx-sanity-bar"></div></div>
-            <span class="gx-value" id="gx-sanity"></span>
-          </div>
-          <div class="gx-meter">
-            <span class="gx-label">Suspicion</span>
-            <div class="gx-bar"><div class="gx-bar-fill" id="gx-suspicion-bar"></div></div>
-            <span class="gx-value" id="gx-suspicion"></span>
-          </div>
-          <div class="gx-meter">
-            <span class="gx-label">Evidence</span>
-            <span class="gx-value" id="gx-evidence-count"></span>
-          </div>
-          <button type="button" class="gx-btn" id="gx-log-toggle">로그</button>
-        </div>
-        <div id="gx-vn">
-          <div id="gx-name"></div>
-          <div id="gx-text"></div>
-          <div id="gx-choices"></div>
-        </div>
-        <div id="gx-puzzle" class="gx-hidden">
-          <div id="gx-puzzle-backdrop"></div>
-          <div id="gx-puzzle-body">
-            <div id="gx-puzzle-header">
-              <div>
-                <h2 id="gx-puzzle-title"></h2>
-                <p id="gx-puzzle-desc"></p>
-              </div>
-              <div id="gx-puzzle-meta">
-                <span id="gx-puzzle-timer"></span>
-                <button type="button" class="gx-btn" id="gx-puzzle-hint">힌트</button>
-                <button type="button" class="gx-btn" id="gx-puzzle-reset">리셋</button>
-              </div>
-            </div>
-            <div id="gx-puzzle-content"></div>
-          </div>
-        </div>
-        <div id="gx-log" class="gx-hidden">
-          <div id="gx-log-panel">
-            <div id="gx-log-header">
-              <h3>사건 로그</h3>
-              <button type="button" class="gx-btn" id="gx-log-close">닫기</button>
-            </div>
-            <div id="gx-log-entries"></div>
-          </div>
-        </div>
-        <div id="gx-toast"></div>
-      </div>
-    `;
-
-    container.appendChild(rootEl);
-    injectStyles();
-    wireHUD();
-    updateHUD();
-  }
-
-  function injectStyles() {
-    const css = `
-      #gx-root {
-        font-family: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, -apple-system, sans-serif;
-        color: #f3f4f6;
-        position: relative;
-      }
-      #gx-layer {
-        position: relative;
-        background: radial-gradient(120% 120% at 50% 0%, rgba(37, 99, 235, 0.14), rgba(15, 23, 42, 0.88));
-        border-radius: 18px;
-        padding: 24px;
-        box-sizing: border-box;
-        min-height: 420px;
-        box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
-        overflow: hidden;
-      }
-      #gx-hud {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        align-items: center;
-        justify-content: flex-start;
-        padding-bottom: 18px;
-      }
-      #gx-hud .gx-meter {
-        display: flex;
-        flex-direction: column;
-        min-width: 80px;
-        gap: 4px;
-        background: rgba(15, 23, 42, 0.55);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        padding: 8px 10px;
-        border-radius: 12px;
-      }
-      #gx-hud .gx-label {
-        font-size: 12px;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        opacity: 0.7;
-      }
-      #gx-hud .gx-value {
-        font-weight: 700;
-        font-size: 16px;
-      }
-      #gx-hud .gx-bar {
-        width: 120px;
-        height: 8px;
-        border-radius: 999px;
-        background: rgba(15, 23, 42, 0.8);
-        overflow: hidden;
-        position: relative;
-      }
-      #gx-hud .gx-bar-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #38bdf8, #6366f1);
-        width: 50%;
-      }
-      #gx-hud .gx-btn {
-        align-self: flex-end;
-      }
-      #gx-vn {
-        border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        background: rgba(15, 23, 42, 0.65);
-        padding: 20px;
-        display: grid;
-        gap: 16px;
-        min-height: 220px;
-      }
-      #gx-name {
-        font-size: 18px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        color: #a5b4fc;
-        text-transform: uppercase;
-      }
-      #gx-text {
-        font-size: 17px;
-        line-height: 1.6;
-        color: #e2e8f0;
-        min-height: 96px;
-      }
-      #gx-choices {
-        display: grid;
-        gap: 12px;
-      }
-      #gx-choices button {
-        border-radius: 12px;
-        border: 1px solid rgba(129, 140, 248, 0.45);
-        background: rgba(79, 70, 229, 0.18);
-        color: #e0f2fe;
-        padding: 14px 16px;
-        font-size: 15px;
-        font-weight: 700;
-        text-align: left;
-        cursor: pointer;
-        transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-      }
-      #gx-choices button:hover {
-        transform: translateY(-1px);
-        border-color: rgba(129, 140, 248, 0.7);
-        box-shadow: 0 8px 18px rgba(79, 70, 229, 0.2);
-      }
-      .gx-btn {
-        border-radius: 10px;
-        border: 1px solid rgba(129, 140, 248, 0.4);
-        background: rgba(79, 70, 229, 0.22);
-        color: #e0f2fe;
-        padding: 10px 14px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.2s ease;
-      }
-      .gx-btn:hover {
-        background: rgba(129, 140, 248, 0.35);
-      }
-      #gx-puzzle {
-        position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-        box-sizing: border-box;
-      }
-      #gx-puzzle.gx-active {
-        display: flex;
-      }
-      #gx-puzzle-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(7, 11, 20, 0.78);
-        backdrop-filter: blur(6px);
-      }
-      #gx-puzzle-body {
-        position: relative;
-        z-index: 2;
-        width: min(100%, 720px);
-        border-radius: 18px;
-        padding: 20px;
-        background: rgba(15, 23, 42, 0.95);
-        border: 1px solid rgba(129, 140, 248, 0.3);
-        display: grid;
-        gap: 18px;
-      }
-      #gx-puzzle-header {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 12px;
-        align-items: center;
-      }
-      #gx-puzzle-title {
-        margin: 0;
-        font-size: 20px;
-        color: #a5b4fc;
-      }
-      #gx-puzzle-desc {
-        margin: 4px 0 0;
-        font-size: 15px;
-        line-height: 1.5;
-        color: #cbd5f5;
-      }
-      #gx-puzzle-meta {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-      #gx-puzzle-timer {
-        font-weight: 800;
-        font-size: 16px;
-        min-width: 72px;
-        text-align: right;
-        color: #fcd34d;
-      }
-      #gx-log {
-        position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-      }
-      #gx-log.gx-active {
-        display: flex;
-      }
-      #gx-log-panel {
-        width: min(100%, 560px);
-        background: rgba(15, 23, 42, 0.94);
-        border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        padding: 20px;
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
-        display: grid;
-        gap: 12px;
-        max-height: 80vh;
-      }
-      #gx-log-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      #gx-log-header h3 {
-        margin: 0;
-        font-size: 18px;
-        color: #a5b4fc;
-      }
-      #gx-log-entries {
-        overflow-y: auto;
-        padding-right: 4px;
-        display: grid;
-        gap: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-      }
-      #gx-log-entries .gx-log-entry {
-        background: rgba(30, 41, 59, 0.65);
-        border-radius: 12px;
-        padding: 10px 12px;
-        border: 1px solid rgba(148, 163, 184, 0.22);
-      }
-      #gx-toast {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: grid;
-        gap: 8px;
-        z-index: 10;
-      }
-      #gx-toast .gx-toast-item {
-        background: rgba(14, 165, 233, 0.86);
-        padding: 10px 14px;
-        border-radius: 12px;
-        font-size: 14px;
-        font-weight: 600;
-        min-width: 220px;
-        text-align: center;
-        box-shadow: 0 18px 40px rgba(14, 165, 233, 0.28);
-      }
-      #gx-toast .gx-toast-item.warn {
-        background: rgba(249, 115, 22, 0.88);
-        box-shadow: 0 18px 40px rgba(249, 115, 22, 0.28);
-      }
-      #gx-toast .gx-toast-item.error {
-        background: rgba(239, 68, 68, 0.88);
-        box-shadow: 0 18px 40px rgba(239, 68, 68, 0.28);
-      }
-      #gx-toast .gx-toast-item.success {
-        background: rgba(34, 197, 94, 0.88);
-        box-shadow: 0 18px 40px rgba(34, 197, 94, 0.28);
-      }
-      #gx-root .gx-hidden {
-        display: none !important;
-      }
-      #gx-root .pair-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-        gap: 10px;
-      }
-      #gx-root .pair-card {
-        height: 84px;
-        border-radius: 12px;
-        background: rgba(30, 41, 59, 0.8);
-        border: 1px solid rgba(129, 140, 248, 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 22px;
-        cursor: pointer;
-        transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
-      }
-      #gx-root .pair-card.revealed {
-        background: rgba(129, 140, 248, 0.25);
-        border-color: rgba(165, 180, 252, 0.6);
-        transform: translateY(-2px);
-      }
-      #gx-root .pair-card.matched {
-        background: rgba(52, 211, 153, 0.2);
-        border-color: rgba(52, 211, 153, 0.6);
-        color: #bbf7d0;
-        cursor: default;
-      }
-      #gx-root .slider-row {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 12px;
-      }
-      #gx-root .slider-cell {
-        padding: 18px 0;
-        border-radius: 12px;
-        border: 1px solid rgba(94, 234, 212, 0.4);
-        background: rgba(13, 148, 136, 0.16);
-        text-align: center;
-        font-weight: 800;
-        font-size: 20px;
-        cursor: pointer;
-        transition: transform 0.15s ease, border-color 0.2s ease;
-      }
-      #gx-root .slider-cell.selected {
-        border-color: rgba(16, 185, 129, 0.7);
-        transform: translateY(-2px);
-      }
-      #gx-root .rhythm-track {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-      #gx-root .rhythm-beat {
-        height: 14px;
-        border-radius: 999px;
-        background: rgba(79, 70, 229, 0.3);
-        position: relative;
-        overflow: hidden;
-      }
-      #gx-root .rhythm-beat.active::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: rgba(129, 140, 248, 0.9);
-        animation: gxPulse 0.35s ease;
-      }
-      @keyframes gxPulse {
-        from {
-          opacity: 0.1;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-      #gx-root .circuit-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-        justify-items: center;
-      }
-      #gx-root .circuit-node {
-        width: 90px;
-        height: 90px;
-        border-radius: 18px;
-        border: 1px solid rgba(56, 189, 248, 0.4);
-        background: radial-gradient(circle at 50% 40%, rgba(96, 165, 250, 0.32), rgba(30, 64, 175, 0.32));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-size: 24px;
-        cursor: pointer;
-        position: relative;
-        transition: transform 0.16s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-      }
-      #gx-root .circuit-node.selected {
-        border-color: rgba(34, 197, 94, 0.8);
-        box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
-        transform: translateY(-2px);
-      }
-      #gx-root .circuit-node.start::before {
-        content: 'S';
-        position: absolute;
-        top: 6px;
-        left: 8px;
-        font-size: 12px;
-        color: rgba(241, 245, 249, 0.8);
-      }
-      #gx-root .circuit-node.goal::before {
-        content: 'F';
-        position: absolute;
-        top: 6px;
-        right: 8px;
-        font-size: 12px;
-        color: rgba(241, 245, 249, 0.8);
-      }
-      #gx-root .circuit-controls {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        margin-top: 12px;
-      }
-      @media (max-width: 600px) {
-        #gx-layer {
-          padding: 16px;
-        }
-        #gx-hud {
-          gap: 8px;
-        }
-        #gx-hud .gx-meter {
-          min-width: 120px;
-        }
-        #gx-puzzle-body {
-          padding: 16px;
-        }
-      }
-    `;
-    styleEl = document.createElement("style");
-    styleEl.textContent = css;
-    document.head.appendChild(styleEl);
-  }
-
-  function wireHUD() {
-    const toggleBtn = rootEl.querySelector("#gx-log-toggle");
-    const closeBtn = rootEl.querySelector("#gx-log-close");
-    toggleBtn.addEventListener("click", () => {
-      const panel = rootEl.querySelector("#gx-log");
-      panel.classList.toggle("gx-active");
-    });
-    closeBtn.addEventListener("click", () => {
-      const panel = rootEl.querySelector("#gx-log");
-      panel.classList.remove("gx-active");
-    });
-  }
-
-  function clearTimers() {
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-    }
-    if (beatTimeout) {
-      clearTimeout(beatTimeout);
-      beatTimeout = null;
-    }
-    if (rhythmAnimation) {
-      cancelAnimationFrame(rhythmAnimation);
-      rhythmAnimation = null;
-    }
-    timeouts.forEach((id) => clearTimeout(id));
-    timeouts.clear();
-  }
-
-  function start() {
-    ensureRoot();
-    initState();
-    if (mountOptions && mountOptions.handoff && mountOptions.handoff.day) {
-      STATE.day = Math.min(mountOptions.handoff.day, STATE.maxDay);
-    }
-    startTimestamp = Date.now();
-    const initialScene = mountOptions && mountOptions.flags && mountOptions.flags.skipIntro ? "act1_intro" : "act1_intro";
-    gotoScene(initialScene);
-    pushLog("게임 세그먼트가 시작되었습니다.");
-  }
-
-  function destroy() {
-    clearTimers();
-    if (rootEl) {
-      rootEl.remove();
-      rootEl = null;
-    }
-    if (styleEl) {
-      styleEl.remove();
-      styleEl = null;
-    }
-    activePuzzle = null;
-    mountOptions = null;
-    STATE = null;
-    startTimestamp = null;
-  }
-
-  function getState() {
-    if (!STATE) return null;
-    return {
-      day: STATE.day,
-      maxDay: STATE.maxDay,
-      sanity: STATE.sanity,
-      suspicion: STATE.suspicion,
-      evidence: Array.from(STATE.evidence),
-      hintUsed: STATE.hintUsed,
-      sceneId: STATE.sceneId,
-      log: STATE.log.slice(),
-      stats: { ...STATE.stats },
-    };
-  }
-
-  function gotoScene(id) {
-    if (!STATE) return;
-    if (id === "ending_check") {
-      evaluateEnding();
-      return;
-    }
-    const scene = SCENES[id];
-    if (!scene) {
-      console.warn("Unknown scene", id);
-      return;
-    }
-    STATE.sceneId = id;
-    const sceneDay = SCENE_DAYS[id];
-    if (sceneDay) {
-      STATE.day = Math.max(STATE.day, sceneDay);
-    }
-    renderScene(scene);
-  }
-
-  function renderScene(scene) {
-    const nameEl = rootEl.querySelector("#gx-name");
-    const textEl = rootEl.querySelector("#gx-text");
-    nameEl.textContent = scene.speaker || "";
-    textEl.textContent = scene.text || "";
-    setChoices(scene.choices || []);
-    updateHUD();
-  }
-
-  function setChoices(list) {
-    const wrap = rootEl.querySelector("#gx-choices");
-    wrap.innerHTML = "";
-    list.forEach((choice) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = choice.text;
-      btn.addEventListener("click", () => {
-        if (choice.effect) {
-          if (typeof choice.effect === "function") {
-            choice.effect();
-          } else {
-            applyEffect(choice.effect);
-          }
-        }
-        if (choice.puzzleKey) {
-          startPuzzle(choice.puzzleKey, choice);
-          return;
-        }
-        if (choice.goto) {
-          gotoScene(choice.goto);
-          return;
-        }
-        updateHUD();
-      });
-      wrap.appendChild(btn);
-    });
-  }
-
-  function applyEffect(effectObj) {
-    if (!effectObj || typeof effectObj !== "object") return;
-    if (effectObj.sanity) {
-      STATE.sanity = Math.max(0, Math.min(5, STATE.sanity + effectObj.sanity));
-      pushLog(`정신력 변화: ${effectObj.sanity > 0 ? "+" : ""}${effectObj.sanity}`);
-      if (STATE.sanity <= 0) {
-        gotoScene("ending_bad");
-        return;
-      }
-    }
-    if (effectObj.addMemo) {
-      addEvidence("memo_note");
-      pushLog("회의실에서 발견한 메모를 인벤토리에 추가했다.");
-    }
-    updateHUD();
-  }
-
-  function startPuzzle(key, meta) {
-    if (!PUZZLES[key]) {
-      console.warn("Unknown puzzle", key);
-      return;
-    }
-    clearTimers();
-    activePuzzle = {
-      key,
-      meta,
-      startedAt: Date.now(),
-      remaining: PUZZLES[key].timeLimit,
-      solvedBeats: 0,
-    };
-    const data = PUZZLES[key];
-    const modal = rootEl.querySelector("#gx-puzzle");
-    modal.classList.add("gx-active");
-    rootEl.querySelector("#gx-puzzle-title").textContent = data.title;
-    rootEl.querySelector("#gx-puzzle-desc").textContent = data.description;
-    rootEl.querySelector("#gx-puzzle-content").innerHTML = "";
-    rootEl.querySelector("#gx-puzzle-hint").onclick = () => {
-      STATE.hintUsed += 1;
-      STATE.stats.hints += 1;
-      showToast(`힌트 사용 (${STATE.hintUsed})`, "warn");
-      pushLog(`힌트 사용: ${data.title}`);
-      showHint(data);
-      updateHUD();
-    };
-    rootEl.querySelector("#gx-puzzle-reset").onclick = () => {
-      showToast("퍼즐을 재설정했습니다.");
-      startPuzzle(key, meta);
-    };
-    startCountdown(data.timeLimit, () => {
-      failPuzzle("시간 초과");
-    });
-
-    switch (key) {
-      case "pairmatch":
-        setupPairMatch(meta);
-        break;
-      case "slider":
-        setupSlider(meta);
-        break;
-      case "rhythm":
-        setupRhythm(meta);
-        break;
-      case "circuit":
-        setupCircuit(meta);
-        break;
-      default:
-        break;
-    }
-  }
-
-  function showHint(data) {
-    showToast(data.hint, "info");
-  }
-
-  function startCountdown(seconds, onExpire) {
-    const timerEl = rootEl.querySelector("#gx-puzzle-timer");
-    const end = Date.now() + seconds * 1000;
-    function tick() {
-      const now = Date.now();
-      const diff = Math.max(0, Math.floor((end - now) / 1000));
-      timerEl.textContent = `${String(diff).padStart(2, "0")}s`;
-      if (diff <= 0) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-        onExpire();
-      }
-    }
-    tick();
-    countdownInterval = setInterval(tick, 250);
-  }
-
-  function finishPuzzle(success) {
-    clearTimers();
-    const modal = rootEl.querySelector("#gx-puzzle");
-    modal.classList.remove("gx-active");
-    if (!activePuzzle) return;
-    const data = PUZZLES[activePuzzle.key];
-    if (success) {
-      showToast("퍼즐 성공", "success");
-      addEvidence(data.evidence);
-      if (data.successScene) {
-        gotoScene(data.successScene);
-      }
-    } else {
-      STATE.stats.fails += 1;
-      STATE.sanity = Math.max(0, STATE.sanity - 1);
-      pushLog(`퍼즐 실패: ${data.title}`);
-      showToast("퍼즐 실패", "error");
-      if (STATE.sanity <= 0) {
-        gotoScene("ending_bad");
-      } else if (data.failureScene) {
-        gotoScene(data.failureScene);
-      }
-    }
-    activePuzzle = null;
-    updateHUD();
-  }
-
-  function succeedPuzzle() {
-    finishPuzzle(true);
-  }
-
-  function failPuzzle(reason) {
-    if (reason) {
-      showToast(reason, "warn");
-    }
-    finishPuzzle(false);
-  }
-
-  function addEvidence(key) {
-    if (!STATE.evidence.has(key)) {
-      STATE.evidence.add(key);
-      pushLog(`증거 확보: ${EVIDENCE[key] ? EVIDENCE[key].name : key}`);
-    }
-    recomputeSuspicion();
-    updateHUD();
-  }
-
-  function recomputeSuspicion() {
-    let s = 0;
-    for (const k of STATE.evidence) {
-      const e = EVIDENCE[k];
-      if (!e) continue;
-      s += (e.weight * e.reliability) * 100 / 3;
-    }
-    const hintPenalty = Math.min(STATE.hintUsed * 3, 20);
-    STATE.suspicion = Math.max(0, Math.min(100, Math.round(s - hintPenalty)));
+    STATE.toastTimer = setTimeout(() => {
+      toast.classList.add("hidden");
+      STATE.toastTimer = null;
+    }, ms);
   }
 
   function updateHUD() {
-    if (!rootEl || !STATE) return;
-    const dayEl = rootEl.querySelector("#gx-day");
-    const sanityEl = rootEl.querySelector("#gx-sanity");
-    const sanityBar = rootEl.querySelector("#gx-sanity-bar");
-    const suspEl = rootEl.querySelector("#gx-suspicion");
-    const suspBar = rootEl.querySelector("#gx-suspicion-bar");
-    const evidenceEl = rootEl.querySelector("#gx-evidence-count");
-
-    dayEl.textContent = `${STATE.day} / ${STATE.maxDay}`;
-    sanityEl.textContent = `${STATE.sanity}`;
-    sanityBar.style.width = `${(STATE.sanity / 5) * 100}%`;
-    suspEl.textContent = `${STATE.suspicion}`;
-    suspBar.style.width = `${STATE.suspicion}%`;
-    evidenceEl.textContent = `${STATE.evidence.size}`;
-
-    const logEl = rootEl.querySelector("#gx-log-entries");
-    logEl.innerHTML = STATE.log
-      .map((entry) => `<div class="gx-log-entry">${entry}</div>`)
-      .join("");
+    const { refs, sanity, suspicion } = STATE;
+    refs.sanVal.textContent = sanity;
+    refs.sanBarFill.style.width = Math.max(0, (sanity / DEFAULT_SANITY) * 100) + "%";
+    refs.susBarFill.style.width = Math.max(0, Math.min(100, suspicion)) + "%";
   }
 
-  function pushLog(textHtml) {
-    if (!STATE) return;
-    STATE.log.push(textHtml);
-    if (STATE.log.length > 60) {
-      STATE.log.shift();
-    }
-    updateHUD();
-  }
-
-  function showToast(msg, type = "info") {
-    const toastWrap = rootEl.querySelector("#gx-toast");
-    const item = document.createElement("div");
-    item.className = `gx-toast-item ${type}`;
-    item.textContent = msg;
-    toastWrap.appendChild(item);
-    const id = setTimeout(() => {
-      item.remove();
-      timeouts.delete(id);
-    }, 2200);
-    timeouts.add(id);
-  }
-
-  function evaluateEnding() {
-    if (STATE.sanity <= 0) {
-      gotoScene("ending_bad");
-      return;
-    }
-    recomputeSuspicion();
-    if (STATE.evidence.has("label_scan") && STATE.day < 2) {
-      STATE.day = 2;
-    }
-    if (STATE.evidence.has("gel_capsule") && STATE.day < 3) {
-      STATE.day = 3;
-    }
-    if (STATE.evidence.has("voice_loop") && STATE.day < 4) {
-      STATE.day = 4;
-    }
-    if (STATE.evidence.has("memo_note") && STATE.day < 4) {
-      STATE.day = 4;
-    }
-
-    if (STATE.sanity <= 0) {
-      gotoScene("ending_bad");
-      return;
-    }
-
-    const evidenceScore = STATE.evidence.size;
-    const susp = STATE.suspicion;
-    if (susp >= 70 && evidenceScore >= 4) {
-      gotoScene("ending_good");
-    } else if (susp >= 40 && evidenceScore >= 2) {
-      gotoScene("ending_neutral");
-    } else {
-      gotoScene("ending_bad");
-    }
-  }
-
-  function finishGame(endingKey) {
-    clearTimers();
-    if (!STATE) return;
-    if (startTimestamp) {
-      STATE.stats.timeSpent = Date.now() - startTimestamp;
-    }
-    const result = {
-      ending: endingKey,
-      stats: {
-        fails: STATE.stats.fails,
-        hints: STATE.stats.hints,
-        timeSpent: STATE.stats.timeSpent,
-        evidence: Array.from(STATE.evidence),
-      },
-    };
-    pushLog(`엔딩 도달: ${endingKey}`);
-    if (mountOptions && mountOptions.onEnd) {
-      mountOptions.onEnd(result);
-    }
-  }
-
-  function setupPairMatch() {
-    const pairs = [
-      { code: "A.", meaning: "산도 조절" },
-      { code: "B..", meaning: "혈류 촉진" },
-      { code: "C", meaning: "해독 보조" },
-      { code: "D...", meaning: "각성" },
-      { code: "E.", meaning: "냉감 유지" },
-      { code: "F", meaning: "광택 첨가" },
-    ];
-    const cards = [];
-    pairs.forEach((p, idx) => {
-      cards.push({ id: `c${idx}-a`, key: idx, label: p.code });
-      cards.push({ id: `c${idx}-b`, key: idx, label: p.meaning });
-    });
-    const ordered = shuffle(cards);
-    const wrap = document.createElement("div");
-    wrap.className = "pair-grid";
-    const state = { opened: [], matched: new Set() };
-
-    ordered.forEach((card) => {
+  function speak(name, text, choices = []) {
+    const { refs } = STATE;
+    refs.name.textContent = name;
+    refs.text.innerHTML = text;
+    refs.choices.innerHTML = "";
+    choices.forEach((choice) => {
       const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "pair-card";
-      btn.dataset.key = card.key;
-      btn.textContent = "?";
-      btn.addEventListener("click", () => {
-        if (state.matched.has(card.id) || btn.classList.contains("matched")) return;
-        if (state.opened.some((o) => o.id === card.id)) return;
-        reveal(btn, card.label);
-        state.opened.push({ id: card.id, key: card.key, element: btn, label: card.label });
-        if (state.opened.length === 2) {
-          const [a, b] = state.opened;
-          if (a.key === b.key && a.id !== b.id) {
-            a.element.classList.add("matched");
-            b.element.classList.add("matched");
-            state.matched.add(a.id);
-            state.matched.add(b.id);
-            state.opened = [];
-            if (state.matched.size === ordered.length) {
-              succeedPuzzle();
+      btn.textContent = choice.text;
+      btn.onclick = choice.onClick;
+      refs.choices.appendChild(btn);
+    });
+  }
+
+  function hideAllPuzzles() {
+    STATE.refs.puzzleLabel.classList.add("hidden");
+    STATE.refs.puzzleKey.classList.add("hidden");
+  }
+
+  function go(scene) {
+    STATE.scene = scene;
+    hideAllPuzzles();
+
+    if (scene === "start") {
+      speak("나", "인트로는 끝났다. 보라의 녹즙… 뭔가 수상하다.", [
+        { text: "라벨을 확인한다", onClick: () => go("label_tut") },
+      ]);
+    }
+
+    if (scene === "label_tut") {
+      speak("나", "라벨에 아이콘만 있다. 간단히 해독해보자.", [
+        { text: "시작", onClick: startLabelPuzzle },
+      ]);
+    }
+
+    if (scene === "label_done") {
+      STATE.evidence.add("label");
+      STATE.suspicion = Math.min(100, STATE.suspicion + 40);
+      updateHUD();
+      speak("시스템", "라벨에서 C/H/L/O를 해독했다.", [
+        { text: "냉장고를 확인한다", onClick: () => go("key_intro") },
+      ]);
+    }
+
+    if (scene === "key_intro") {
+      speak("나", "보라의 밀프렙 박스가 자물쇠로 잠겨 있다.", [
+        { text: "키패드 입력", onClick: startKeypadPuzzle },
+      ]);
+    }
+
+    if (scene === "key_done") {
+      STATE.evidence.add("fridge");
+      STATE.suspicion = Math.min(100, STATE.suspicion + 40);
+      updateHUD();
+      speak("보라", "당신도 곧 맑아질 거예요. 한 잔만 마시면.", [
+        { text: "증거를 제시한다", onClick: endingCheck },
+        { text: "녹즙을 마신다(배드엔딩)", onClick: endingBad },
+      ]);
+    }
+  }
+
+  function startLabelPuzzle() {
+    const grid = STATE.refs.labelGrid;
+    const container = STATE.refs.puzzleLabel;
+    container.classList.remove("hidden");
+    grid.innerHTML = "";
+
+    const cards = [];
+    PAIRS.forEach(([icon, ch]) => {
+      cards.push({ k: icon, t: "i" });
+      cards.push({ k: ch, t: "c" });
+    });
+    shuffle(cards);
+
+    let opened = [];
+    let solved = 0;
+
+    cards.forEach((data) => {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.textContent = "?";
+      el.onclick = () => {
+        if (el.classList.contains("solved") || opened.length === 2) return;
+        if (opened.some((item) => item.el === el)) return;
+        el.textContent = data.k;
+        opened.push({ el, data });
+        if (opened.length === 2) {
+          const [a, b] = opened;
+          if (isPair(a.data, b.data)) {
+            a.el.classList.add("solved");
+            b.el.classList.add("solved");
+            solved += 1;
+            opened = [];
+            if (solved === PAIRS.length) {
+              showToast("해독 성공! 증거 획득");
+              go("label_done");
             }
           } else {
-            const id = setTimeout(() => {
-              hide(a.element);
-              hide(b.element);
-              state.opened = [];
-              timeouts.delete(id);
-            }, 700);
-            timeouts.add(id);
+            setTimeout(() => {
+              a.el.textContent = "?";
+              b.el.textContent = "?";
+              opened = [];
+            }, 550);
           }
         }
-      });
-      wrap.appendChild(btn);
+      };
+      grid.appendChild(el);
     });
 
-    rootEl.querySelector("#gx-puzzle-content").appendChild(wrap);
-
-    function reveal(el, label) {
-      el.classList.add("revealed");
-      el.textContent = label;
-    }
-
-    function hide(el) {
-      el.classList.remove("revealed");
-      el.textContent = "?";
+    function isPair(a, b) {
+      if (a.t === b.t) return false;
+      const icon = a.t === "i" ? a.k : b.k;
+      const ch = a.t === "c" ? a.k : b.k;
+      return PAIRS.some(([I, C]) => I === icon && C === ch);
     }
   }
 
-  function setupSlider() {
-    const target = ["P", "U", "R", "E", "E"];
-    let current = shuffle(target.slice()).slice(0, target.length);
-    if (arraysEqual(current, target)) {
-      current = shuffle(target.slice());
-    }
-    const wrap = document.createElement("div");
-    wrap.className = "slider-row";
-    let selectedIndex = null;
+  function startKeypadPuzzle() {
+    const keypad = STATE.refs.puzzleKey;
+    const display = STATE.refs.codeDisp;
+    keypad.classList.remove("hidden");
 
-    current.forEach((value, index) => {
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = "slider-cell";
-      cell.textContent = value;
-      cell.addEventListener("click", () => {
-        if (selectedIndex === null) {
-          selectedIndex = index;
-          cell.classList.add("selected");
-        } else if (selectedIndex === index) {
-          cell.classList.remove("selected");
-          selectedIndex = null;
-        } else {
-          const other = wrap.children[selectedIndex];
-          const tmp = current[selectedIndex];
-          current[selectedIndex] = current[index];
-          current[index] = tmp;
-          other.textContent = current[selectedIndex];
-          cell.textContent = current[index];
-          other.classList.remove("selected");
-          selectedIndex = null;
-          if (arraysEqual(current, target)) {
-            succeedPuzzle();
+    let cur = [];
+    const buttons = Array.from(keypad.querySelectorAll("button"));
+    buttons.forEach((btn) => {
+      const k = btn.dataset.k;
+      btn.onclick = () => {
+        if (k === "C") {
+          cur = [];
+          update();
+          return;
+        }
+        if (k === "OK") {
+          if (equals(cur, CODE)) {
+            showToast("잠금 해제!", 1200);
+            go("key_done");
+          } else {
+            miss();
           }
+          return;
         }
-      });
-      wrap.appendChild(cell);
+        if (cur.length < 4) {
+          cur.push(k);
+          update();
+        }
+      };
     });
 
-    rootEl.querySelector("#gx-puzzle-content").appendChild(wrap);
-  }
+    update();
 
-  function setupRhythm() {
-    const schedule = [0, 1000, 2000, 3300, 4700];
-    const tolerance = 120;
-    const windowMs = 320;
-    const track = document.createElement("div");
-    track.className = "rhythm-track";
-    const beatsEls = schedule.map(() => {
-      const div = document.createElement("div");
-      div.className = "rhythm-beat";
-      track.appendChild(div);
-      return div;
-    });
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "gx-btn";
-    button.textContent = "탭";
-    const info = document.createElement("p");
-    info.textContent = "표시가 켜질 때 버튼을 눌러 파형을 동기화하세요.";
-    info.style.margin = "0";
-    info.style.opacity = "0.8";
-    info.style.fontSize = "14px";
+    function update() {
+      display.textContent = (cur.join("") + "____").slice(0, 4);
+    }
 
-    const contentEl = rootEl.querySelector("#gx-puzzle-content");
-    contentEl.appendChild(info);
-    contentEl.appendChild(track);
-    contentEl.appendChild(button);
-
-    let currentBeat = -1;
-    let expected = null;
-    let started = false;
-
-    button.addEventListener("click", () => {
-      if (!started || expected === null) return;
-      const diff = Math.abs(Date.now() - expected);
-      if (diff <= tolerance) {
-        beatsEls[currentBeat].classList.remove("active");
-        if (beatTimeout) {
-          clearTimeout(beatTimeout);
-          beatTimeout = null;
-        }
-        expected = null;
-        activePuzzle.solvedBeats += 1;
-        if (activePuzzle.solvedBeats === schedule.length) {
-          succeedPuzzle();
-        }
-      } else {
-        failPuzzle("박자를 놓쳤습니다");
-      }
-    });
-
-    const startId = setTimeout(() => {
-      started = true;
-      triggerBeat(0);
-      timeouts.delete(startId);
-    }, 600);
-    timeouts.add(startId);
-
-    function triggerBeat(index) {
-      if (!activePuzzle || activePuzzle.key !== "rhythm") return;
-      currentBeat = index;
-      beatsEls.forEach((el, idx) => {
-        if (idx === index) {
-          el.classList.add("active");
-        } else {
-          el.classList.remove("active");
-        }
-      });
-      expected = Date.now();
-      if (beatTimeout) {
-        clearTimeout(beatTimeout);
-        beatTimeout = null;
-      }
-      beatTimeout = setTimeout(() => {
-        beatsEls[index].classList.remove("active");
-        beatTimeout = null;
-        if (expected !== null) {
-          failPuzzle("박자를 놓쳤습니다");
-        }
-      }, windowMs);
-      if (index + 1 < schedule.length) {
-        const delay = Math.max(200, schedule[index + 1] - schedule[index]);
-        const id = setTimeout(() => {
-          triggerBeat(index + 1);
-          timeouts.delete(id);
-        }, delay);
-        timeouts.add(id);
+    function miss() {
+      STATE.sanity = Math.max(0, STATE.sanity - 1);
+      updateHUD();
+      showToast("오답! 정신력 -1", 1400);
+      if (STATE.sanity <= 0) {
+        endingBad();
       }
     }
   }
 
-
-  function setupCircuit() {
-    const nodes = [
-      { id: "A", className: "start" },
-      { id: "B" },
-      { id: "C" },
-      { id: "D" },
-      { id: "E" },
-      { id: "F", className: "goal" },
-    ];
-    const adjacency = {
-      A: ["B", "C"],
-      B: ["A", "D"],
-      C: ["A", "D", "E"],
-      D: ["B", "C", "F"],
-      E: ["C", "F"],
-      F: ["D", "E"],
-    };
-    const solution = ["A", "C", "E", "F"];
-    const wrap = document.createElement("div");
-    wrap.className = "circuit-grid";
-    const selected = [];
-
-    nodes.forEach((node) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `circuit-node ${node.className || ""}`.trim();
-      btn.textContent = node.id;
-      btn.addEventListener("click", () => {
-        if (!selected.length) {
-          if (node.id !== "A") {
-            showToast("A에서 시작해야 합니다.", "warn");
-            return;
-          }
-          selected.push(node.id);
-          btn.classList.add("selected");
-          return;
-        }
-        const last = selected[selected.length - 1];
-        if (!adjacency[last].includes(node.id)) {
-          showToast("연결되지 않은 노드입니다.", "warn");
-          resetSelection();
-          return;
-        }
-        if (selected.includes(node.id)) {
-          showToast("이미 선택한 노드입니다.", "warn");
-          resetSelection();
-          return;
-        }
-        selected.push(node.id);
-        btn.classList.add("selected");
-      });
-      wrap.appendChild(btn);
-    });
-
-    const controls = document.createElement("div");
-    controls.className = "circuit-controls";
-    const submitBtn = document.createElement("button");
-    submitBtn.type = "button";
-    submitBtn.className = "gx-btn";
-    submitBtn.textContent = "전류 흐르게";
-    submitBtn.addEventListener("click", () => {
-      if (arraysEqual(selected, solution)) {
-        succeedPuzzle();
-      } else {
-        failPuzzle("회로가 어긋났습니다");
-      }
-    });
-    const resetBtn = document.createElement("button");
-    resetBtn.type = "button";
-    resetBtn.className = "gx-btn";
-    resetBtn.textContent = "리셋";
-    resetBtn.addEventListener("click", () => {
-      resetSelection();
-    });
-    controls.appendChild(resetBtn);
-    controls.appendChild(submitBtn);
-
-    const content = rootEl.querySelector("#gx-puzzle-content");
-    content.appendChild(wrap);
-    content.appendChild(controls);
-
-    function resetSelection() {
-      selected.length = 0;
-      wrap.querySelectorAll(".circuit-node").forEach((el) => el.classList.remove("selected"));
+  function endingCheck() {
+    const score = (STATE.evidence.has("label") ? 50 : 0) + (STATE.evidence.has("fridge") ? 50 : 0);
+    STATE.suspicion = score;
+    updateHUD();
+    if (score >= 70) {
+      endingGood();
+    } else {
+      endingBad();
     }
   }
 
-  function arraysEqual(a, b) {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i += 1) {
-      if (a[i] !== b[i]) return false;
+  function endingGood() {
+    hideAllPuzzles();
+    speak("시스템", '<b class="good">굿엔딩</b> — 증거로 정체를 밝히는 데 성공했다.', [
+      { text: "다시 시작", onClick: reset },
+    ]);
+    endCallback("good");
+  }
+
+  function endingBad() {
+    hideAllPuzzles();
+    speak("시스템", '<b class="bad">배드엔딩</b> — 정신력이 소진되었거나, 잘못된 선택을 했다.', [
+      { text: "다시 시작", onClick: reset },
+    ]);
+    endCallback("bad");
+  }
+
+  function endCallback(type) {
+    if (typeof STATE.onEnd === "function") {
+      STATE.onEnd({
+        ending: type,
+        stats: {
+          evidence: Array.from(STATE.evidence),
+          sanity: STATE.sanity,
+          suspicion: STATE.suspicion,
+        },
+      });
     }
-    return true;
+  }
+
+  function reset() {
+    STATE.sanity = DEFAULT_SANITY;
+    STATE.suspicion = 0;
+    STATE.evidence = new Set();
+    STATE.scene = "start";
+    updateHUD();
+    hideAllPuzzles();
+    go("start");
+  }
+
+  function equals(a, b) {
+    return a.length === b.length && a.every((v, i) => v === b[i]);
   }
 
   function shuffle(arr) {
-    const copy = arr.slice();
-    for (let i = copy.length - 1; i > 0; i -= 1) {
+    for (let i = arr.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
-      const tmp = copy[i];
-      copy[i] = copy[j];
-      copy[j] = tmp;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-    return copy;
+    return arr;
   }
 
-  global[NAMESPACE] = {
-    mount,
-    start,
-    destroy,
-    getState,
-    gotoScene,
-    renderScene,
-    setChoices,
-    applyEffect,
-    startPuzzle,
-    addEvidence,
-    recomputeSuspicion,
-    updateHUD,
-    pushLog,
-    showToast,
+  const api = {
+    mount({ container, onEnd } = {}) {
+      ensureStyle();
+      const target = container || document.body;
+      let nodes = collectExisting(target);
+      if (!nodes) {
+        nodes = createStructure(target);
+      }
+
+      STATE = createState();
+      STATE.container = target;
+      STATE.onEnd = typeof onEnd === "function" ? onEnd : null;
+      STATE.root = nodes.root;
+      STATE.toast = nodes.toast;
+
+      STATE.refs = {
+        sanVal: nodes.root.querySelector("#sanVal"),
+        sanBarFill: nodes.root.querySelector("#sanBar span"),
+        susBarFill: nodes.root.querySelector("#susBar span"),
+        name: nodes.root.querySelector("#name"),
+        text: nodes.root.querySelector("#text"),
+        choices: nodes.root.querySelector("#choices"),
+        puzzleLabel: nodes.root.querySelector("#puzzleLabel"),
+        labelGrid: nodes.root.querySelector("#labelGrid"),
+        puzzleKey: nodes.root.querySelector("#puzzleKey"),
+        codeDisp: nodes.root.querySelector("#codeDisp"),
+      };
+
+      updateHUD();
+      hideAllPuzzles();
+      speak("나", "인트로는 이미 끝났다. 이제 본 게임을 시작하자.");
+    },
+    start() {
+      checkMounted();
+      reset();
+    },
+    destroy() {
+      if (!STATE || !STATE.root) return;
+      if (STATE.toastTimer) {
+        clearTimeout(STATE.toastTimer);
+      }
+      const wrapper = STATE.root.closest('[data-gjl-wrapper="true"]');
+      if (wrapper && wrapper.parentNode) {
+        wrapper.parentNode.removeChild(wrapper);
+      } else {
+        if (STATE.root.parentNode) {
+          STATE.root.parentNode.removeChild(STATE.root);
+        }
+      }
+      if (STATE.toast && STATE.toast.parentNode) {
+        STATE.toast.parentNode.removeChild(STATE.toast);
+      }
+      STATE = null;
+    },
   };
-})(window);
 
-document.addEventListener("DOMContentLoaded", () => {
-  const root = document.getElementById("game-root");
-  if (!root) return;
-  const shouldAutoStart = root.dataset.autostart === "true";
-  if (!shouldAutoStart) return;
-
-  const skipIntro = root.dataset.skipIntro === "true";
-
-  window.GreenJuiceGame.mount({
-    container: root,
-    flags: { skipIntro },
-    onEnd(result) {
-      console.log("Game Ended", result);
+  Object.defineProperty(api, "state", {
+    get() {
+      return STATE;
     },
   });
-  window.GreenJuiceGame.start();
-});
+
+  global.GreenJuiceLite = api;
+})(window);
