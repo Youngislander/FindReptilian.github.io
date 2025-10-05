@@ -310,17 +310,19 @@ button:hover { filter:brightness(1.1) }
         {
           text: "준비됐다",
           onClick: (event) => {
+            const target = event && event.currentTarget;
             if (STATE.labelStarted) {
-              if (event && event.currentTarget) {
-                event.currentTarget.disabled = true;
+              if (target) {
+                target.disabled = true;
               }
               return;
             }
             STATE.labelStarted = true;
-            if (event && event.currentTarget) {
-              event.currentTarget.disabled = true;
+            if (target) {
+              target.disabled = true;
+              target.classList.add("hidden");
             }
-            startLabelPuzzle();
+            startLabelPuzzle({ scrollIntoView: true });
           },
         },
       ]);
@@ -352,7 +354,7 @@ button:hover { filter:brightness(1.1) }
     }
   }
 
-  function startLabelPuzzle() {
+  function startLabelPuzzle({ scrollIntoView = false } = {}) {
     const {
       puzzleLabel,
       labelFlash,
@@ -544,6 +546,13 @@ button:hover { filter:brightness(1.1) }
     }
 
     puzzleLabel.classList.remove("hidden");
+    if (scrollIntoView && typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        if (puzzleLabel && typeof puzzleLabel.scrollIntoView === "function") {
+          puzzleLabel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
     if (labelReplay) {
       labelReplay.onclick = () => {
         if (STATE.sanity <= 1) {
