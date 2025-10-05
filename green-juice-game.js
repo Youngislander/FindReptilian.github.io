@@ -97,7 +97,7 @@ button:hover { filter:brightness(1.1) }
     ["🧊", "O"],
   ];
   const LABEL_SEQUENCE = PAIRS.map(([, ch]) => ch);
-  const CODE = ["3", "8", "1", "5"];
+  const CODE = ["3", "8", "3", "6"];
 
   let STATE = null;
 
