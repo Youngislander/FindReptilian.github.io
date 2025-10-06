@@ -48,6 +48,9 @@
     </div>
 
     <div id="finalEncounter" class="final-enc hidden">
+      <div class="final-message" id="finalMessage">
+        정체가 들통난 랩틸리언이 당신을 공격하기 시작합니다. 뿜어내는 초록색 독을 피하고, 랩틸리언을 처치하세요.
+      </div>
       <div class="final-transition" id="finalTransition">
         <div class="transition-face human" id="faceHuman"></div>
         <div class="transition-face reptile" id="faceReptile"></div>
@@ -131,9 +134,10 @@ button:hover { filter:brightness(1.1) }
 .modal-content { width:min(320px, 100%); background:#161636; border:1px solid #2a2a58; border-radius:14px; padding:18px; box-shadow:0 18px 36px rgba(0,0,0,0.35); display:grid; gap:16px }
 .modal-message { line-height:1.6; text-align:left; font-size:14px; color:#e2e8f0 }
 .modal-actions { display:flex; justify-content:flex-end; gap:8px }
-.hidden { display:none }
+.hidden { display:none !important }
 .toast { position:fixed; right:16px; bottom:16px; background:#22224a; color:#eee; padding:10px 12px; border:1px solid #2a2a58; border-radius:8px }
 .final-enc { position:relative; margin-top:20px; padding:22px; border:1px solid #2a2a58; border-radius:16px; background:radial-gradient(circle at top,#020617 0%,#020b1b 55%,#010409 100%); overflow:hidden; min-height:320px; display:grid; place-items:center; gap:16px; transition:background .6s ease }
+.final-message { font-size:15px; line-height:1.6; color:rgba(226,232,240,0.92); text-align:center; max-width:420px }
 .final-enc.is-flicker { animation:finalFlicker .16s steps(2,end) infinite; background:radial-gradient(circle at top,#000,#00140a 60%,#000) }
 .final-transition { position:relative; width:100%; height:260px; display:flex; align-items:center; justify-content:center; transition:transform .8s ease, opacity .8s ease }
 .transition-face { position:absolute; top:50%; left:50%; width:220px; height:240px; transform:translate(-50%,-50%) scale(1.08); border-radius:44% 46% 40% 42%; opacity:0; transition:opacity .8s ease, transform .9s ease; box-shadow:0 0 36px rgba(34,197,94,0.28) }
