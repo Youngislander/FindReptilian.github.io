@@ -93,7 +93,7 @@
 </div>`;
 
   const STYLES = `
-#gx-lite { max-width: 680px; margin: 24px auto; padding: 16px; font-family: ui-sans-serif, system-ui, "Noto Sans KR", Arial; color:#eee; background:#121225; border:1px solid #2a2a58; border-radius:12px }
+#gx-lite { max-width: 760px; margin: 0 auto; padding: 24px 28px 36px; min-height: 520px; font-family: ui-sans-serif, system-ui, "Noto Sans KR", Arial; color:#eee; background:#121225; border:1px solid #2a2a58; border-radius:16px }
 .hud { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:14px }
 .pill { padding:6px 10px; border:1px solid #2a2a58; border-radius:999px; background:#191936 }
 .bar { height:6px; border:1px solid #2a2a58; background:#101028; border-radius:999px; overflow:hidden }
