@@ -1,5 +1,7 @@
 (function (global) {
   const STYLE_ID = "greenjuice-lite-style";
+  const REPORT_INTRO_TEXT =
+    "탕비실 냉장고에 언제나 정체불명의 녹즙이 채워져 있습니다. 매일 아침 가장 먼저 출근하는 그 동료가 늘 그것을 꺼내 마시는데… 그냥 건강관리일까요, 아니면 뭔가 더 깊은 이유가 있는 걸까요?";
   const TEMPLATE = `
 <div data-gjl-wrapper="true">
   <div id="gx-lite">
@@ -22,10 +24,7 @@
     <div id="puzzleLabel" class="hidden">
       <div class="suspicion-report">
         <div class="report-title">잠입자 의심 신고서</div>
-        <div class="report-body">
-          탕비실 냉장고에 언제나 정체불명의 녹즙이 채워져 있습니다. 매일 아침 가장 먼저 출근하는 그 동료가 늘 그것을 꺼내
-          마시는데… 그냥 건강관리일까요, 아니면 뭔가 더 깊은 이유가 있는 걸까요?
-        </div>
+        <div class="report-body report-highlight">${REPORT_INTRO_TEXT}</div>
       </div>
       <div class="row"><b>라벨 해독</b><span class="note">3초 동안 카드 위치를 기억한 뒤 아이콘과 문자를 짝지으세요.</span></div>
       <div id="labelFlash" class="label-flash">
@@ -45,10 +44,7 @@
     <div id="puzzleKey" class="hidden">
       <div class="suspicion-report">
         <div class="report-title">잠입자 의심 신고서</div>
-        <div class="report-body">
-          탕비실 냉장고에 언제나 정체불명의 녹즙이 채워져 있습니다. 매일 아침 가장 먼저 출근하는 그 동료가 늘 그것을 꺼내
-          마시는데… 그냥 건강관리일까요, 아니면 뭔가 더 깊은 이유가 있는 걸까요?
-        </div>
+        <div class="report-body report-highlight">${REPORT_INTRO_TEXT}</div>
       </div>
       <div class="row"><b>냉장고 키패드</b><span class="note">라벨에서 얻은 힌트로 4자리를 입력하세요.</span></div>
       <div class="code" id="codeDisp">____</div>
@@ -125,6 +121,7 @@ button:hover { filter:brightness(1.1) }
 .suspicion-report { margin-bottom:14px; padding:14px 16px; border:1px solid rgba(99,102,241,0.35); border-radius:12px; background:rgba(30,30,72,0.55); display:grid; gap:8px; line-height:1.55 }
 .suspicion-report .report-title { font-weight:700; font-size:14px; letter-spacing:1px; color:#c7d2fe; text-transform:uppercase }
 .suspicion-report .report-body { font-size:13px; color:rgba(226,232,240,0.92) }
+.suspicion-report .report-body.report-highlight { font-size:16px; font-weight:600; color:#fef3c7; line-height:1.75; text-shadow:0 0 18px rgba(251,191,36,0.25); letter-spacing:0.4px }
 .label-flash { margin-top:12px; padding:18px; border:1px dashed #3c3c6b; border-radius:12px; background:rgba(18,18,60,0.6); display:grid; place-items:center; gap:12px; min-height:120px; text-align:center }
 .label-countdown { font:700 42px/1 "Orbitron", ui-monospace, monospace; color:#60a5fa }
 .label-content { font:700 20px/1.4 ui-monospace, Menlo, monospace; text-transform:uppercase; color:#f5f3ff; display:grid; gap:12px; justify-items:center; text-align:center }
@@ -183,6 +180,8 @@ button:hover { filter:brightness(1.1) }
 .arcade-stage .enemy { position:absolute; top:18px; left:50%; width:clamp(140px, 22vh, 260px); height:clamp(140px, 22vh, 260px); transform:translateX(-50%); border-radius:48% 52% 40% 40%; background:linear-gradient(180deg,rgba(5,15,12,0.65),rgba(2,6,12,0.95)),url('./hero-face.svg'); background-size:cover; background-position:center 30%; background-repeat:no-repeat; box-shadow:0 0 28px rgba(34,197,94,0.45); transition:filter .2s ease, transform .2s ease }
 .arcade-stage .enemy.hit { animation:enemyHit .3s ease }
 .arcade-stage .player { position:absolute; bottom:18px; left:50%; width:80px; height:44px; transform:translateX(-50%); border-radius:24px 24px 14px 14px; background:linear-gradient(180deg,#fef3c7 0%,#facc15 75%,#b45309 100%); box-shadow:0 0 0 2px rgba(249,250,229,0.3); transition:transform .2s ease }
+.arcade-stage .player::before { content:""; position:absolute; top:-78px; left:50%; width:88px; height:88px; transform:translateX(-50%); border-radius:50%; background:radial-gradient(circle at 50% 30%,#fef08a 0%,#fde047 55%,#f59e0b 100%); border:4px solid rgba(251,191,36,0.75); box-shadow:0 18px 34px rgba(15,23,42,0.45) }
+.arcade-stage .player::after { content:""; position:absolute; top:-44px; left:50%; width:88px; height:42px; transform:translateX(-50%); background:radial-gradient(circle at 30% 50%, transparent 0, transparent 54%, rgba(15,23,42,0.82) 55%, rgba(15,23,42,0.82) 62%, transparent 63%), radial-gradient(circle at 70% 50%, transparent 0, transparent 54%, rgba(15,23,42,0.82) 55%, rgba(15,23,42,0.82) 62%, transparent 63%), linear-gradient(90deg, transparent 28%, rgba(15,23,42,0.82) 28%, rgba(15,23,42,0.82) 32%, transparent 32%, transparent 68%, rgba(15,23,42,0.82) 68%, rgba(15,23,42,0.82) 72%, transparent 72%); background-repeat:no-repeat; background-size:40px 40px, 40px 40px, 100% 6px; background-position:left center, right center, center 58% }
 .arcade-stage .player.hit { animation:playerHit .35s ease }
 .proj { position:absolute; width:10px; height:24px; border-radius:999px }
 .proj.knife { background:linear-gradient(180deg,#e0e7ff,#6366f1); box-shadow:0 0 14px rgba(99,102,241,0.8) }
@@ -1144,13 +1143,18 @@ button:hover { filter:brightness(1.1) }
   }
 
   function finalEncounterFail() {
-    showArcadeOverlay("녹즙에 맞아 정신력이 붕괴했습니다.");
     stopFinalArcade();
     STATE.scene = "final_failure";
-    setTimeout(() => {
-      exitFinalEncounter();
-      endingBad();
-    }, 1200);
+    showArcadeOverlay("녹즙에 맞아 정신력이 붕괴했습니다.", {
+      buttonText: "다시 도전",
+      onButton: () => {
+        if (!STATE || STATE.scene !== "final_failure") return;
+        STATE.sanity = Math.max(5, DEFAULT_SANITY);
+        updateHUD();
+        clearArcadeOverlay();
+        startFinalArcade();
+      },
+    });
   }
 
   function endingCheck() {
