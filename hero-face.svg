@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 360">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#0b1320" />
+    </linearGradient>
+    <pattern id="scales" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M0 10 Q5 0 10 10" fill="none" stroke="#3fa66b" stroke-width="1" />
+    </pattern>
+    <clipPath id="half-right">
+      <rect x="0" y="-160" width="160" height="320" />
+    </clipPath>
+    <clipPath id="half-left">
+      <rect x="-160" y="-160" width="160" height="320" />
+    </clipPath>
+  </defs>
+  <rect width="600" height="360" fill="url(#g1)" rx="16" />
+  <g transform="translate(300 180)">
+    <ellipse cx="0" cy="0" rx="120" ry="140" fill="#e5e7eb" stroke="#0c1220" stroke-width="4" />
+    <line x1="0" y1="-140" x2="0" y2="140" stroke="#0c1220" stroke-width="4" />
+    <g clip-path="url(#half-right)">
+      <ellipse cx="0" cy="0" rx="120" ry="140" fill="#0f3b33" />
+      <ellipse cx="50" cy="-10" rx="26" ry="18" fill="#d6b410" stroke="#0b1220" stroke-width="4" />
+      <circle cx="58" cy="-10" r="6" fill="#0b1220" />
+      <rect x="-120" y="-140" width="240" height="280" fill="url(#scales)" opacity="0.4" />
+    </g>
+    <g clip-path="url(#half-left)">
+      <ellipse cx="0" cy="0" rx="120" ry="140" fill="#cbd5e1" />
+      <ellipse cx="-50" cy="-12" rx="22" ry="14" fill="#1e293b" />
+      <circle cx="-52" cy="-12" r="5" fill="#93c5fd" />
+    </g>
+    <path d="M-30 50 Q0 70 30 50" fill="none" stroke="#0b1220" stroke-width="7" stroke-linecap="round" />
+  </g>
+</svg>

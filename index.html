@@ -16,131 +16,42 @@
         color: #e2e8f0;
       }
 
-      .page-wrap {
+      body {
         display: flex;
-        align-items: center;
+        align-items: stretch;
         justify-content: center;
-        min-height: 100vh;
-        padding: 24px;
-        box-sizing: border-box;
-      }
-
-      .game-shell {
-        width: min(100%, 960px);
-        background: rgba(15, 23, 42, 0.92);
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        border-radius: 22px;
-        padding: 32px 28px;
-        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.55);
-      }
-
-      .intro-wrap {
-        text-align: center;
-      }
-
-      .intro-wrap h1 {
-        margin: 0 0 18px;
-        font-size: clamp(1.6rem, 2.2vw + 1rem, 2.6rem);
-        font-weight: 600;
-        color: #f8fafc;
-        letter-spacing: -0.02em;
-      }
-
-      .intro-meta {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 12px 20px;
-        margin-bottom: 32px;
-        font-size: 0.95rem;
-        color: rgba(148, 163, 184, 0.9);
-      }
-
-      .intro-meta span {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(15, 23, 42, 0.55);
-      }
-
-      .primary-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        padding: 14px 28px;
-        border-radius: 999px;
-        border: none;
-        font-size: 1.05rem;
-        font-weight: 600;
-        background: linear-gradient(135deg, #38bdf8, #6366f1);
-        color: #0b1120;
-        cursor: pointer;
-        box-shadow: 0 12px 30px rgba(56, 189, 248, 0.35);
-        transition: transform 120ms ease, box-shadow 120ms ease;
-      }
-
-      .primary-button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 16px 36px rgba(56, 189, 248, 0.45);
-      }
-
-      .primary-button:active {
-        transform: translateY(0);
-        box-shadow: 0 8px 20px rgba(56, 189, 248, 0.32);
-      }
-
-      .primary-button svg {
-        width: 20px;
-        height: 20px;
       }
 
       .game-section {
-        margin-top: 32px;
+        flex: 1;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: min(5vh, 48px) min(4vw, 48px);
+        box-sizing: border-box;
       }
 
       .game-section.is-hidden {
         display: none;
       }
 
-      @media (max-width: 640px) {
-        .game-shell {
-          padding: 24px 20px;
-        }
-
-        .intro-meta {
-          flex-direction: column;
-          gap: 10px;
-        }
+      .game-root {
+        width: min(100%, 960px);
+        display: flex;
+        justify-content: center;
       }
     </style>
   </head>
   <body>
-    <div class="page-wrap">
-      <div class="game-shell">
-        <div class="intro-wrap" id="intro-section">
-          <h1>잠입자 의심 신고서</h1>
-          <div class="intro-meta">
-            <span>07:45 — 탕비실 문이 열리기 전</span>
-            <span>증거 수집 단계 4회</span>
-            <span>정신력 관리 필수</span>
-          </div>
-        </div>
-        <div class="game-section is-hidden" id="game-section">
-          <div id="game-root"></div>
-        </div>
-      </div>
+    <div class="game-section is-hidden" id="game-section">
+      <div id="game-root" class="game-root"></div>
     </div>
     <div id="intro-root"></div>
     <script src="./green-juice-game.js"></script>
     <script>
       (function () {
         function init() {
-          const startButton = document.getElementById("start-commute");
-          const introSection = document.getElementById("intro-section");
           const gameSection = document.getElementById("game-section");
           const root = document.getElementById("game-root");
           if (!gameSection || !root || !window.GreenJuiceLite) {
@@ -152,9 +63,6 @@
           function startExperience() {
             if (started) return;
             started = true;
-            if (introSection) {
-              introSection.classList.add("is-hidden");
-            }
             gameSection.classList.remove("is-hidden");
 
             window.GreenJuiceLite.mount({
@@ -166,11 +74,7 @@
             window.GreenJuiceLite.start();
           }
 
-          if (startButton) {
-            startButton.addEventListener("click", startExperience);
-          }
-
-          window.addEventListener("greenjuice:introComplete", startExperience, { once: false });
+          window.addEventListener("greenjuice:introComplete", startExperience, { once: true });
         }
 
         if (document.readyState === "loading") {
@@ -188,59 +92,14 @@
 
       function HeroIllust() {
         return (
-          <svg
-            viewBox="0 0 600 360"
-            style={{
-              width: "min(92vw, 820px)",
-              maxWidth: 900,
-              height: "auto",
-              borderRadius: 16,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "linear-gradient(180deg,#070a13,#0a0f1f)",
-            }}
-          >
-            <defs>
-              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0f172a" />
-                <stop offset="100%" stopColor="#0b1320" />
-              </linearGradient>
-              <pattern id="scales" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M0,10 Q5,0 10,10" fill="none" stroke="#3fa66b" strokeWidth="1" />
-              </pattern>
-            </defs>
-            <rect x="0" y="0" width="600" height="360" fill="url(#g1)" />
-            <g transform="translate(300,180)">
-              <ellipse cx="0" cy="0" rx="120" ry="140" fill="#e5e7eb" stroke="#0c1220" strokeWidth="4" />
-              <line x1="0" y1="-140" x2="0" y2="140" stroke="#0c1220" strokeWidth="4" />
-              <clipPath id="rightHalf">
-                <rect x="0" y="-160" width="160" height="320" />
-              </clipPath>
-              <g clipPath="url(#rightHalf)">
-                <ellipse cx="0" cy="0" rx="120" ry="140" fill="#0f3b33" />
-                <ellipse cx="50" cy="-10" rx="26" ry="18" fill="#d6b410" stroke="#0b1220" strokeWidth="4" />
-                <circle cx="58" cy="-10" r="6" fill="#0b1220" />
-                <rect x="-120" y="-140" width="240" height="280" fill="url(#scales)" opacity="0.4" />
-              </g>
-              <clipPath id="leftHalf">
-                <rect x="-160" y="-160" width="160" height="320" />
-              </clipPath>
-              <g clipPath="url(#leftHalf)">
-                <ellipse cx="0" cy="0" rx="120" ry="140" fill="#cbd5e1" />
-                <ellipse cx="-50" cy="-12" rx="22" ry="14" fill="#1e293b" />
-                <circle cx="-52" cy="-12" r="5" fill="#93c5fd" />
-              </g>
-              <path d="M-30,50 Q0,70 30,50" stroke="#0b1220" strokeWidth="7" fill="none" strokeLinecap="round" />
-            </g>
-            <text
-              x="300"
-              y="330"
-              textAnchor="middle"
-              fill="#dee2e6"
-              style={{ fontFamily: "ui-sans-serif", fontSize: 18, fontWeight: 800 }}
-            >
-              반은 인간, 반은 랩틸리언
-            </text>
-          </svg>
+          <div style={styles.heroWrap}>
+            <img
+              src="./hero-face.svg"
+              alt="반은 인간, 반은 랩틸리언"
+              style={styles.heroImage}
+            />
+            <div style={styles.heroCaption}>반은 인간, 반은 랩틸리언</div>
+          </div>
         );
       }
 
@@ -548,6 +407,30 @@
           color: "#e5e7eb",
           position: "relative",
           overflow: "hidden",
+        },
+        heroWrap: {
+          width: "min(92vw, 820px)",
+          maxWidth: 900,
+          borderRadius: 16,
+          border: "1px solid rgba(255,255,255,0.12)",
+          background: "linear-gradient(180deg,#070a13,#0a0f1f)",
+          padding: 24,
+          boxSizing: "border-box",
+          display: "grid",
+          justifyItems: "center",
+          gap: 18,
+        },
+        heroImage: {
+          width: "100%",
+          height: "auto",
+          display: "block",
+        },
+        heroCaption: {
+          fontFamily: "ui-sans-serif",
+          fontSize: 18,
+          fontWeight: 800,
+          letterSpacing: 1,
+          color: "#dee2e6",
         },
         titleBox: { textAlign: "center", marginTop: 16 },
         btnPrimary: {

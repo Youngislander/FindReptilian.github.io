@@ -93,7 +93,7 @@
 </div>`;
 
   const STYLES = `
-#gx-lite { max-width: 760px; margin: 0 auto; padding: 24px 28px 36px; min-height: 520px; font-family: ui-sans-serif, system-ui, "Noto Sans KR", Arial; color:#eee; background:#121225; border:1px solid #2a2a58; border-radius:16px }
+#gx-lite { max-width: 760px; margin: 0 auto; padding: 24px 28px 36px; min-height: 520px; box-sizing:border-box; font-family: ui-sans-serif, system-ui, "Noto Sans KR", Arial; color:#eee; background:#121225; border:1px solid #2a2a58; border-radius:16px }
 .hud { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:14px }
 .pill { padding:6px 10px; border:1px solid #2a2a58; border-radius:999px; background:#191936 }
 .bar { height:6px; border:1px solid #2a2a58; background:#101028; border-radius:999px; overflow:hidden }
@@ -136,13 +136,23 @@ button:hover { filter:brightness(1.1) }
 .modal-actions { display:flex; justify-content:flex-end; gap:8px }
 .hidden { display:none !important }
 .toast { position:fixed; right:16px; bottom:16px; background:#22224a; color:#eee; padding:10px 12px; border:1px solid #2a2a58; border-radius:8px }
+.gjl-no-scroll { overflow:hidden !important }
+#gx-lite.arcade-fullscreen { position:fixed; inset:0; width:100vw; height:100vh; margin:0; max-width:none; border-radius:0; padding:clamp(20px,4vh,48px) clamp(20px,4vw,56px); background:radial-gradient(1200px 600px at 50% 0%,#030712,#01030a); display:grid; align-content:center; justify-items:center; gap:clamp(18px,4vh,32px); box-sizing:border-box; z-index:120; overflow:hidden }
+#gx-lite.arcade-fullscreen .final-enc { width:min(960px, 100%); height:min(720px, 100%); margin:0; padding:clamp(18px,3vh,32px); display:grid; align-content:center; justify-items:center }
+#gx-lite.arcade-fullscreen .final-message { font-size:clamp(15px, 1.6vw, 18px); max-width:min(580px, 80%) }
+#gx-lite.arcade-fullscreen .final-transition { height:clamp(260px, 32vh, 360px) }
+#gx-lite.arcade-fullscreen .final-game { width:100%; max-width:min(840px, 100%); display:grid; gap:clamp(14px, 2vh, 24px); align-self:stretch; justify-self:center }
+#gx-lite.arcade-fullscreen .arcade-stage { height:clamp(360px, 58vh, 640px) }
+#gx-lite.arcade-fullscreen .arcade-hud { font-size:clamp(14px, 1.6vw, 18px) }
+#gx-lite.arcade-fullscreen .arcade-instructions { font-size:clamp(13px, 1.5vw, 16px) }
+#gx-lite.arcade-fullscreen .arcade-overlay { font-size:clamp(14px, 1.6vw, 18px) }
 .final-enc { position:relative; margin-top:20px; padding:22px; border:1px solid #2a2a58; border-radius:16px; background:radial-gradient(circle at top,#020617 0%,#020b1b 55%,#010409 100%); overflow:hidden; min-height:320px; display:grid; place-items:center; gap:16px; transition:background .6s ease }
 .final-message { font-size:15px; line-height:1.6; color:rgba(226,232,240,0.92); text-align:center; max-width:420px }
 .final-enc.is-flicker { animation:finalFlicker .16s steps(2,end) infinite; background:radial-gradient(circle at top,#000,#00140a 60%,#000) }
 .final-transition { position:relative; width:100%; height:260px; display:flex; align-items:center; justify-content:center; transition:transform .8s ease, opacity .8s ease }
 .transition-face { position:absolute; top:50%; left:50%; width:220px; height:240px; transform:translate(-50%,-50%) scale(1.08); border-radius:44% 46% 40% 42%; opacity:0; transition:opacity .8s ease, transform .9s ease; box-shadow:0 0 36px rgba(34,197,94,0.28) }
 .transition-face.human { background:radial-gradient(circle at 40% 30%,#f8fafc 0%,#cbd5f5 60%,#1f2937 100%); box-shadow:0 0 32px rgba(148,163,184,0.38) }
-.transition-face.reptile { background:radial-gradient(circle at 45% 35%,#22c55e 0%,#047857 55%,#052e16 100%); filter:contrast(1.15) saturate(1.25); box-shadow:0 0 40px rgba(34,197,94,0.45) }
+.transition-face.reptile { background:linear-gradient(180deg,rgba(8,22,17,0.75),rgba(1,10,8,0.95)),url('./hero-face.svg'); background-size:cover; background-position:center 30%; background-repeat:no-repeat; filter:contrast(1.15) saturate(1.25); box-shadow:0 0 40px rgba(34,197,94,0.45) }
 .transition-glitch { position:absolute; inset:0; background:repeating-linear-gradient(180deg,rgba(34,197,94,0.16) 0,rgba(34,197,94,0.16) 2px,transparent 2px,transparent 4px); mix-blend-mode:screen; opacity:0; transition:opacity .5s ease }
 .final-enc.show-human #faceHuman { opacity:1; transform:translate(-50%,-50%) scale(1) }
 .final-enc.show-reptile #faceReptile { opacity:1; transform:translate(-50%,-50%) scale(1.08) }
@@ -152,8 +162,8 @@ button:hover { filter:brightness(1.1) }
 .final-game { position:relative; display:grid; gap:14px; width:100%; opacity:0; transform:translateY(14px); transition:opacity .6s ease, transform .6s ease }
 .final-enc.show-game .final-game { opacity:1; transform:translateY(0) }
 .arcade-hud { display:flex; justify-content:space-between; gap:12px; font-weight:600; font-size:14px }
-.arcade-stage { position:relative; height:240px; border:1px solid #2f365f; border-radius:18px; background:linear-gradient(180deg,#020617,#0f172a 65%,#020617); overflow:hidden; box-shadow:inset 0 0 28px rgba(5,10,32,0.65) }
-.arcade-stage .enemy { position:absolute; top:18px; left:50%; width:120px; height:120px; transform:translateX(-50%); border-radius:48% 52% 40% 40%; background:radial-gradient(circle at 40% 40%,#22c55e 0%,#15803d 45%,#052e16 100%); box-shadow:0 0 28px rgba(34,197,94,0.45); transition:filter .2s ease, transform .2s ease }
+.arcade-stage { position:relative; height:clamp(280px, 60vh, 520px); border:1px solid #2f365f; border-radius:18px; background:linear-gradient(180deg,#020617,#0f172a 65%,#020617); overflow:hidden; box-shadow:inset 0 0 28px rgba(5,10,32,0.65) }
+.arcade-stage .enemy { position:absolute; top:18px; left:50%; width:clamp(140px, 22vh, 260px); height:clamp(140px, 22vh, 260px); transform:translateX(-50%); border-radius:48% 52% 40% 40%; background:linear-gradient(180deg,rgba(5,15,12,0.65),rgba(2,6,12,0.95)),url('./hero-face.svg'); background-size:cover; background-position:center 30%; background-repeat:no-repeat; box-shadow:0 0 28px rgba(34,197,94,0.45); transition:filter .2s ease, transform .2s ease }
 .arcade-stage .enemy.hit { animation:enemyHit .3s ease }
 .arcade-stage .player { position:absolute; bottom:18px; left:50%; width:80px; height:44px; transform:translateX(-50%); border-radius:24px 24px 14px 14px; background:linear-gradient(180deg,#fef3c7 0%,#facc15 75%,#b45309 100%); box-shadow:0 0 0 2px rgba(249,250,229,0.3); transition:transform .2s ease }
 .arcade-stage .player.hit { animation:playerHit .35s ease }
@@ -341,6 +351,22 @@ button:hover { filter:brightness(1.1) }
       toast.classList.add("hidden");
       STATE.toastTimer = null;
     }, ms);
+  }
+
+  function toggleArcadeFullscreen(active) {
+    if (!STATE) return;
+    const root = STATE.root;
+    const docEl = document.documentElement;
+    const body = document.body;
+    if (root) {
+      root.classList.toggle("arcade-fullscreen", !!active);
+    }
+    if (docEl) {
+      docEl.classList.toggle("gjl-no-scroll", !!active);
+    }
+    if (body) {
+      body.classList.toggle("gjl-no-scroll", !!active);
+    }
   }
 
   function updateHUD() {
@@ -780,6 +806,7 @@ button:hover { filter:brightness(1.1) }
     const { refs } = STATE || {};
     if (!refs) return;
     stopFinalArcade();
+    toggleArcadeFullscreen(false);
     clearArcadeOverlay();
     const { finalEncounter, finalGame, finalVictory, hud, vn, finalArcadeOverlay } = refs;
     if (finalArcadeOverlay) finalArcadeOverlay.classList.add("hidden");
@@ -812,6 +839,8 @@ button:hover { filter:brightness(1.1) }
       endingGood();
       return;
     }
+
+    toggleArcadeFullscreen(true);
 
     finalEncounter.classList.remove("hidden", "victory", "show-human", "show-reptile", "shrink-face", "show-game");
     finalEncounter.classList.add("is-flicker");
@@ -1174,6 +1203,8 @@ button:hover { filter:brightness(1.1) }
       STATE.onEnd = typeof onEnd === "function" ? onEnd : null;
       STATE.root = nodes.root;
       STATE.toast = nodes.toast;
+
+      toggleArcadeFullscreen(false);
 
       STATE.refs = {
         sanVal: nodes.root.querySelector("#sanVal"),
