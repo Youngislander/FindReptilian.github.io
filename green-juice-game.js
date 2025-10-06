@@ -20,6 +20,13 @@
     </div>
 
     <div id="puzzleLabel" class="hidden">
+      <div class="suspicion-report">
+        <div class="report-title">잠입자 의심 신고서</div>
+        <div class="report-body">
+          탕비실 냉장고에 언제나 정체불명의 녹즙이 채워져 있습니다. 매일 아침 가장 먼저 출근하는 그 동료가 늘 그것을 꺼내
+          마시는데… 그냥 건강관리일까요, 아니면 뭔가 더 깊은 이유가 있는 걸까요?
+        </div>
+      </div>
       <div class="row"><b>라벨 해독</b><span class="note">3초 동안 카드 위치를 기억한 뒤 아이콘과 문자를 짝지으세요.</span></div>
       <div id="labelFlash" class="label-flash">
         <div id="labelCountdown" class="label-countdown">3</div>
@@ -36,6 +43,13 @@
     </div>
 
     <div id="puzzleKey" class="hidden">
+      <div class="suspicion-report">
+        <div class="report-title">잠입자 의심 신고서</div>
+        <div class="report-body">
+          탕비실 냉장고에 언제나 정체불명의 녹즙이 채워져 있습니다. 매일 아침 가장 먼저 출근하는 그 동료가 늘 그것을 꺼내
+          마시는데… 그냥 건강관리일까요, 아니면 뭔가 더 깊은 이유가 있는 걸까요?
+        </div>
+      </div>
       <div class="row"><b>냉장고 키패드</b><span class="note">라벨에서 얻은 힌트로 4자리를 입력하세요.</span></div>
       <div class="code" id="codeDisp">____</div>
       <div class="keypad">
@@ -108,6 +122,9 @@ button { padding:10px 14px; border:1px solid #2a2a58; border-radius:10px; backgr
 button:hover { filter:brightness(1.1) }
 .row { display:flex; align-items:center; gap:8px }
 .note { font-size:12px; opacity:.85; margin-top:10px }
+.suspicion-report { margin-bottom:14px; padding:14px 16px; border:1px solid rgba(99,102,241,0.35); border-radius:12px; background:rgba(30,30,72,0.55); display:grid; gap:8px; line-height:1.55 }
+.suspicion-report .report-title { font-weight:700; font-size:14px; letter-spacing:1px; color:#c7d2fe; text-transform:uppercase }
+.suspicion-report .report-body { font-size:13px; color:rgba(226,232,240,0.92) }
 .label-flash { margin-top:12px; padding:18px; border:1px dashed #3c3c6b; border-radius:12px; background:rgba(18,18,60,0.6); display:grid; place-items:center; gap:12px; min-height:120px; text-align:center }
 .label-countdown { font:700 42px/1 "Orbitron", ui-monospace, monospace; color:#60a5fa }
 .label-content { font:700 20px/1.4 ui-monospace, Menlo, monospace; text-transform:uppercase; color:#f5f3ff; display:grid; gap:12px; justify-items:center; text-align:center }
